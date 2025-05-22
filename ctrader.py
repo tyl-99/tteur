@@ -250,7 +250,7 @@ class Trader:
                 print("All Key pairs done.")
                 reactor.stop()
         else:
-            volume = float(claude_decision.get("volume"))*100000
+            volume = round(float(claude_decision.get("volume")),2)*100000
             stop_loss = float(claude_decision.get("stop_loss"))
             take_profit = float(claude_decision.get("take_profit"))
 
