@@ -7,6 +7,8 @@ import anthropic
 import logging
 import json
 import re
+import os
+from dotenv import load_dotenv
 from Strategy import Strategy
 from twisted.internet import reactor
 from ctrader_open_api import Client, Protobuf, TcpProtocol, Auth, EndPoints
@@ -39,11 +41,11 @@ logger = logging.getLogger(__name__)
 
 class Trader:
     def __init__(self):
-        self.client_id = "14599_3RMV0QyWixm3e0ytXnKt8Flc7t1FBJ0EvVDEnVN8A3zMzrK4Xq"
-        self.client_secret = "j06E0xVa36RftN5Ij7ilaQnhvBzvDezfe8Ov2yVKb2E1zqaqdo"
-        self.account_id = 43322178
+        self.client_id = os.getenv("CTRADER_CLIENT_ID")
+        self.client_secret = os.getenv("CTRADER_CLIENT_SECRET")
+        self.account_id = int(os.getenv("CTRADER_ACCOUNT_ID"))
 
-        self.claude_api_key = "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"
+        self.claude_api_key = os.getenv("ANTHROPIC_API_KEY")
         self.claude_client = anthropic.Anthropic(api_key=self.claude_api_key)
         
         self.host = EndPoints.PROTOBUF_DEMO_HOST
@@ -357,7 +359,7 @@ class Trader:
             logger.error(f"Error processing {pair_name}: {str(e)}")
 
 if __name__ == "__main__":
-    
+    load_dotenv()
     trader = Trader()
     
 
