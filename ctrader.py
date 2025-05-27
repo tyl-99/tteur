@@ -210,9 +210,8 @@ class Trader:
             })
         
         df = pd.DataFrame(data)
-        df.set_index('timestamp', inplace=True)
-        df.sort_index(inplace=True)
-
+        df.sort_values('timestamp', inplace=True)
+        df['timestamp'] = df['timestamp'].astype(str)
         self.trendbar = df
         prompt = Strategy.strategy(df=df, pair=self.current_pair)
         self.analyze_with_claude(prompt)

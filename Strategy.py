@@ -7,10 +7,16 @@ class Strategy:
 
     @staticmethod
     def strategy(df, pair) -> str:
-
+    
         # Calculate EMA50 and EMA200
-        ema50 = df['close'].ewm(span=50, adjust=False).mean().iloc[-1]
-        ema200 = df['close'].ewm(span=200, adjust=False).mean().iloc[-1]
+        ema50_series = df['close'].ewm(span=50, adjust=False).mean()
+        ema200_series = df['close'].ewm(span=200, adjust=False).mean()
+        ema50 = ema50_series.iloc[-1]
+        ema200 = ema200_series.iloc[-1]
+
+        # Check EMA slope to confirm trend direction
+        ema50_slope = ema50_series.iloc[-1] - ema50_series.iloc[-5]
+        ema200_slope = ema200_series.iloc[-1] - ema200_series.iloc[-5]
 
         # Calculate RSI(14)
         delta = df['close'].diff()
@@ -30,9 +36,16 @@ class Strategy:
         fib_50 = recent_high - 0.5 * (recent_high - recent_low)
         fib_618 = recent_high - 0.618 * (recent_high - recent_low)
 
+        # Convert timestamps to string for JSON
+        df_copy = df.copy()
+        df_copy['timestamp'] = df_copy['timestamp'].astype(str)
+        candle_data = df_copy.tail(100).to_dict(orient='records')
+
         analysis = {
             'ema50': float(round(ema50, 5)),
             'ema200': float(round(ema200, 5)),
+            'ema50_slope': float(round(ema50_slope, 5)),
+            'ema200_slope': float(round(ema200_slope, 5)),
             'rsi': float(round(rsi_last, 2)),
             'recent_high': float(round(recent_high, 5)),
             'recent_low': float(round(recent_low, 5)),
@@ -45,60 +58,46 @@ class Strategy:
                 'low': float(df['low'].iloc[-1]),
                 'volume': float(df['volume'].iloc[-1])
             },
-            'pair': pair
+            'pair': pair,
+            'recent_candles': candle_data
         }
-        
-                    
+
         analysis_bundle = json.dumps(analysis)
+
         prompt = f"""
         You are an advanced Forex trading analyst. Use the strategy below to analyze {pair} 30-minute chart data and return only the **highest-probability trade setup**, if any. Be strict—only recommend a trade if all conditions align strongly.
 
         📈 Strategy Summary (for {pair} 30min):
         **This is USD Account**
         ✅ Long Trade (Buy):
-        1. Trend must be bullish: EMA 50 is clearly above EMA 200 and both EMAs sloping upward.
-        2. A recent swing low and high must allow for drawing a Fibonacci retracement.
-        3. Price must retrace to **around the 0.5 or 0.618 Fibonacci level**, then bounce up.
-        4. RSI (14) should dip below 30 and start rising (oversold recovery).
-        5. A **bullish candle must close clearly above** the retracement level with volume confirmation (if available).
-        6. Confirm no major resistance directly overhead.
+        1. EMA 50 > EMA 200 AND both EMAs sloping upward (check ema50_slope > 0 and ema200_slope > 0).
+        2. Price must bounce from around 0.5 or 0.618 Fibonacci retracement level.
+        3. RSI < 30 and turning upward.
+        4. Bullish candle closes above retracement level with volume spike.
+        5. No nearby resistance.
 
         🔻 Short Trade (Sell):
-        1. Trend must be bearish: EMA 50 is below EMA 200 and both sloping downward.
-        2. Identify recent swing high and low for Fibonacci.
-        3. Price must pull back to the **0.5 or 0.618 level**, then reject downward.
-        4. RSI (14) should go above 70 and turn downward (overbought condition).
-        5. A **bearish candle must close clearly below** the retracement level with increasing volume.
-        6. Confirm no major support just below.
+        1. EMA 50 < EMA 200 AND both EMAs sloping downward (check ema50_slope < 0 and ema200_slope < 0).
+        2. Price must reject from 0.5 or 0.618 retracement level.
+        3. RSI > 70 and turning downward.
+        4. Bearish candle closes below retracement level with volume spike.
+        5. No nearby support.
 
         💵 Risk Management:
-        - Account size: $1000  
-        - Max risk per trade: $50  
-        - Risk/reward: 1:3  
-        - Automatically calculate stop-loss and take-profit based on that ratio.
-        - Also calculate the volume in **lots** so that if SL is hit, loss = $30.
+        - Account size: $1000
+        - Risk per trade: $50
+        - Target R:R = 1:3
+        - SL = Based on technical level
+        - Use formula: lot_size = 30 / (SL_pips * pip_value)
 
-        📐 Pip Rules (for correct lot size):
-        - Assume 1 lot = 100,000 units
-        - Pip size for EUR/USD, GBP/USD, EUR/GBP = **0.0001**
-        - Pip size for JPY pairs = **0.01**
-        - Pip value (1 lot) for:
-        - EUR/USD = $10  
-        - GBP/USD = $10  
-        - EUR/GBP = $12.5  
-        - USD/JPY = $9.13  
-        - EUR/JPY = $9.28  
-        - GBP/JPY = $9.10
-
-        ✅ To calculate lot size:
-        1. First, calculate stop-loss in **pips** (based on entry vs SL).
-        2. Use formula: `lot_size = 30 / (stop_loss_pips * pip_value)`
-        3. Final answer must include `volume` in **lots**, e.g., 0.12
+        📐 Pip Rules:
+        - EUR/USD, GBP/USD, EUR/GBP: pip = 0.0001, value = $10
+        - USD/JPY, EUR/JPY, GBP/JPY: pip = 0.01, values accordingly
 
         🎯 Objective:
         - Use strict filtering. If the setup is not strong, return "NO TRADE".
         - Your answer must be a clean JSON only in this format:
-
+        
         ```json
         {{
         "volume": float,
@@ -106,10 +105,13 @@ class Strategy:
         "entry_price": float,
         "stop_loss": float,
         "take_profit": float,
-        "reason": "Very short and precise justification — e.g. 'EMA trend bullish, RSI recovering from 29, Fib 0.618 bounce confirmed'"
+        "reason": "Short justification",
+        "winrate": "Confidence %",
+        "volume calculation": "Explain how volume was calculated"
         }}
 
         Data: {analysis_bundle}
         """
-        
+
         return prompt
+
