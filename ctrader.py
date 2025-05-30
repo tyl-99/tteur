@@ -89,7 +89,7 @@ class Trader:
 
     def onAppAuthSuccess(self, response):
         print("App authenticated.")
-        accessToken = "huwYoufihXnGtq-H6YAzWRzSMt2jyb8-O4RIuJLScE0"
+        accessToken = os.getenv("CTRADER_ACCESS_TOKEN")
         self.authenticate_user(accessToken)
 
     def authenticate_user(self, accessToken):
@@ -213,13 +213,31 @@ class Trader:
         df.sort_values('timestamp', inplace=True)
         df['timestamp'] = df['timestamp'].astype(str)
         self.trendbar = df
-        prompt = Strategy.strategy(df=df, pair=self.current_pair)
+        news = self.getForexNews()
+        prompt = Strategy.strategy(df=df, pair=self.current_pair,news=news)
         self.analyze_with_claude(prompt)
+
+    def getForexNews(self)->str:
+
+        prompt = "Find for me forex news for pair {self.current_pair} for today return me in JSON format, including impact and forecast those"
+        response = self.claude_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            max_tokens=1024
+        )
+        claude_response = response.content[0].text
+        return claude_response
+        
 
     def analyze_with_claude(self, prompt):
        
         response = self.claude_client.messages.create(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-4-20250514",
             messages=[
                 {
                     "role": "user",

@@ -6,7 +6,7 @@ class Strategy:
         pass
 
     @staticmethod
-    def strategy(df, pair) -> str:
+    def strategy(df, pair, news) -> str:
     
         # Calculate EMA50 and EMA200
         ema50_series = df['close'].ewm(span=50, adjust=False).mean()
@@ -96,7 +96,7 @@ class Strategy:
 
         🎯 Objective:
         - Use strict filtering. If the setup is not strong, return "NO TRADE".
-        - Your answer must be a clean JSON only in this format:
+        - Your answer M UST STRICTLY be a clean JSON only in this format:
         
         ```json
         {{
@@ -110,8 +110,12 @@ class Strategy:
         "volume calculation": "Explain how volume was calculated"
         }}
 
+        Forex News for today : {news}
+        
         Data: {analysis_bundle}
         """
 
         return prompt
 
+
+    
