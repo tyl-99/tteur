@@ -1670,3 +1670,57 @@
 2025-05-30 12:13:02,327 - __main__ - INFO - 
 === Claude's Decision for GBP/JPY ===
 2025-05-30 12:13:02,328 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"EMA slopes are negative (downtrend) but price is far below Fibonacci levels and RSI extremely oversold without clear reversal signal\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met - both EMAs sloping downward but price action doesn't align with strategy requirements\"\n}\n```"
+2025-05-30 13:28:32,021 - __main__ - INFO - Processing EUR/USD
+2025-05-30 13:28:42,972 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:28:48,767 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:28:48,769 - __main__ - INFO - 
+=== Claude's Decision for EUR/USD ===
+2025-05-30 13:28:48,769 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Multiple conditions not met: RSI at 37.21 (not <30), price at 1.13461 not near fib levels (0.5: 1.13678, 0.618: 1.13626), last candle bearish with low volume 1366\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade setup identified\"\n}\n```"
+2025-05-30 13:28:48,770 - __main__ - INFO - Processing GBP/USD
+2025-05-30 13:28:59,300 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:29:04,884 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:29:04,887 - __main__ - INFO - 
+=== Claude's Decision for GBP/USD ===
+2025-05-30 13:29:04,887 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Strategy conditions not met: EMA50 < EMA200 but both slopes not strongly bearish, RSI at 40.25 (neutral zone), no clear Fibonacci rejection pattern, mixed signals\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade setup identified - conditions do not align for either buy or sell signal\"\n}\n```"
+2025-05-30 13:29:04,887 - __main__ - INFO - Processing USD/JPY
+2025-05-30 13:29:15,860 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:29:28,214 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:29:28,216 - __main__ - INFO - 
+=== Claude's Decision for USD/JPY ===
+2025-05-30 13:29:28,217 - __main__ - INFO - "Looking at the USD/JPY 30-minute chart data, I'll analyze this strictly against the strategy requirements:\n\n**Strategy Analysis:**\n\n1. **EMA Condition**: EMA50 (144.285) > EMA200 (144.217) \u2705, but both slopes are negative (EMA50: -0.083, EMA200: -0.017) \u274c\n2. **Fibonacci Levels**: Current price (143.778) is near 0.618 level (143.733) \u2705\n3. **RSI**: 38.93 - not in oversold (<30) or overbought (>70) territory \u274c\n4. **Price Action**: Last candle shows slight bullish movement but no significant volume spike \u274c\n5. **Trend**: Both EMAs sloping downward indicates weakening trend \u274c\n\n**Critical Issues:**\n- Both EMAs are sloping downward, violating the primary trend requirement for both long and short setups\n- RSI is in neutral zone (38.93), not showing extreme oversold/overbought conditions required\n- No clear volume spike confirmation\n- Mixed signals with price near support but EMAs showing bearish momentum\n\nThe setup lacks the strong confluence of signals required by the strategy. The downward-sloping EMAs are particularly concerning as they indicate weakening momentum despite the higher EMA50.\n\n```json\n{\n    \"volume\": 0.0,\n    \"decision\": \"NO TRADE\",\n    \"entry_price\": 0.0,\n    \"stop_loss\": 0.0,\n    \"take_profit\": 0.0,\n    \"reason\": \"Both EMAs sloping downward violates trend requirements. RSI not in extreme zones. Insufficient signal confluence.\",\n    \"winrate\": \"0%\",\n    \"volume calculation\": \"No trade setup identified - volume calculation not applicable\"\n}\n```"
+2025-05-30 13:30:43,298 - __main__ - INFO - Processing EUR/USD
+2025-05-30 13:30:54,249 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:30:59,832 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:30:59,834 - __main__ - INFO - 
+=== Claude's Decision for EUR/USD ===
+2025-05-30 13:30:59,834 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"RSI at 31.81 not oversold enough (<30), price at 1.13464 not near fib levels (0.5: 1.13666, 0.618: 1.1361), no clear bounce signal from retracement levels\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met, no volume calculated\"\n}\n```"
+2025-05-30 13:30:59,835 - __main__ - INFO - Processing GBP/USD
+2025-05-30 13:31:09,776 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:15,337 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:15,341 - __main__ - INFO - 
+=== Claude's Decision for GBP/USD ===
+2025-05-30 13:31:15,342 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"EMA conditions not met - EMA50 < EMA200 but slopes not aligned for short, RSI at 33.92 not in oversold/overbought zones\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade setup identified\"\n}\n```"
+2025-05-30 13:31:15,342 - __main__ - INFO - Processing USD/JPY
+2025-05-30 13:31:25,013 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:30,137 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:30,142 - __main__ - INFO - 
+=== Claude's Decision for USD/JPY ===
+2025-05-30 13:31:30,143 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Strategy conditions not met - both EMAs sloping downward, RSI neutral at 48.55, price not at key Fibonacci levels, no clear directional bias\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met - no volume calculation performed\"\n}\n```"
+2025-05-30 13:31:30,143 - __main__ - INFO - Processing EUR/JPY
+2025-05-30 13:31:39,853 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:45,084 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:31:45,089 - __main__ - INFO - 
+=== Claude's Decision for EUR/JPY ===
+2025-05-30 13:31:45,089 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"EMA slopes do not align - EMA50 slope is negative (-0.07159) while strategy requires positive slope for long position. RSI oversold but EMAs trending down.\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met - both EMAs must slope upward for long entry\"\n}\n```"
+2025-05-30 13:31:45,090 - __main__ - INFO - Processing EUR/GBP
+2025-05-30 13:31:56,183 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:32:01,162 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:32:01,164 - __main__ - INFO - 
+=== Claude's Decision for EUR/GBP ===
+2025-05-30 13:32:01,164 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"RSI at 39.09 not oversold (<30), price not at key Fibonacci levels, and last candle bearish without volume spike\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met - no volume calculated\"\n}\n```"
+2025-05-30 13:32:01,165 - __main__ - INFO - Processing GBP/JPY
+2025-05-30 13:32:11,072 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:32:17,064 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-05-30 13:32:17,068 - __main__ - INFO - 
+=== Claude's Decision for GBP/JPY ===
+2025-05-30 13:32:17,068 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"EMA slopes are negative (-0.12994, -0.02938) indicating downtrend, but RSI at 34.25 is not oversold enough (<30) for long setup. Price not at key Fibonacci levels for clear reversal signal.\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade conditions met - negative EMA slopes conflict with potential long setup and RSI not in extreme zone\"\n}\n```"

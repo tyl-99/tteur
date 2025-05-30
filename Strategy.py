@@ -97,6 +97,7 @@ class Strategy:
         🎯 Objective:
         - Use strict filtering. If the setup is not strong, return "NO TRADE".
         - Your answer M UST STRICTLY be a clean JSON only in this format:
+        - Your response only have JSON ONLY!!! NO OTHER THINGS
         
         ```json
         {{
