@@ -69,19 +69,7 @@ class Strategy:
 
         📈 Strategy Summary (for {pair} 30min):
         **This is USD Account**
-        ✅ Long Trade (Buy):
-        1. EMA 50 > EMA 200 AND both EMAs sloping upward (check ema50_slope > 0 and ema200_slope > 0).
-        2. Price must bounce from around 0.5 or 0.618 Fibonacci retracement level.
-        3. RSI < 30 and turning upward.
-        4. Bullish candle closes above retracement level with volume spike.
-        5. No nearby resistance.
-
-        🔻 Short Trade (Sell):
-        1. EMA 50 < EMA 200 AND both EMAs sloping downward (check ema50_slope < 0 and ema200_slope < 0).
-        2. Price must reject from 0.5 or 0.618 retracement level.
-        3. RSI > 70 and turning downward.
-        4. Bearish candle closes below retracement level with volume spike.
-        5. No nearby support.
+        {Strategy.get_strategy(pair)}
 
         💵 Risk Management:
         - Account size: $1000
@@ -117,6 +105,110 @@ class Strategy:
         """
 
         return prompt
+
+    @staticmethod
+    def get_strategy(pair):
+        pair = pair.upper()
+        strategies = {
+    "EUR/USD": """
+          ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200 with both showing a sharp upward slope.
+            2. Price touches 0.5 or 0.618 fib zone with double bottom or bullish engulfing.
+            3. RSI < 30 AND bullish divergence within last 5 bars.
+            4. Strong bullish candle closes above fib zone with volume > 2x average.
+            5. Resistance must be > 30 pips away.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 with strong downward slope (ema50_slope < 2 * ema200_slope).
+            2. Price rejects fib zone with long upper wick + bearish engulfing.
+            3. RSI > 70 AND bearish divergence confirmed.
+            4. Candle closes below fib with volume spike > 150% of recent average.
+            5. Nearest support must be > 30 pips away.
+            """,
+
+                "GBP/USD": """
+            ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200 and slope > 2x ATR.
+            2. Pullback to fib 0.5 or 0.618 with pin bar or bullish engulfing after RSI < 35.
+            3. Volume on bounce candle is higher than past 10 bars.
+            4. 2nd bullish candle confirms entry with clean close above fib zone.
+            5. Resistance at least 25 pips away and price must close above micro-range.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 and sloping clearly down.
+            2. Fib rejection at 0.5 or 0.618 with RSI > 65 and turning down.
+            3. Candle has upper wick > body size.
+            4. High-volume bearish candle follows confirming momentum.
+            5. No support within 25 pips; strong body close confirms breakdown.
+            """,
+
+                "USD/JPY": """
+            ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200 and slope > 1.5x recent ATR.
+            2. Pullback to 0.5 or 0.618 fib during NY session only.
+            3. RSI < 30 and price forms bullish engulfing candle.
+            4. Volume spike in bullish candle > average of last 20 bars.
+            5. Resistance > 35 pips away and recent highs taken out.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 with strong negative slope.
+            2. Price rejects fib zone with long upper wick and RSI > 75.
+            3. Bearish engulfing or Marubozu closes below fib level.
+            4. Volume must exceed past 15-candle average by 30%.
+            5. No support seen in 30 pips.
+            """,
+
+                "EUR/JPY": """
+            ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200 and both rising (avoid flat EMA50).
+            2. RSI < 25 and hidden bullish divergence against price.
+            3. Strong lower wick rejection from fib zone (0.5–0.618).
+            4. Bullish engulfing candle closes above fib level with volume spike.
+            5. No supply zones within 30 pips.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 and sloping downward.
+            2. RSI > 75 and bearish divergence with prior swing high.
+            3. Pin bar or engulfing candle rejects fib zone with large upper wick.
+            4. Follow-up bearish candle breaks below fib zone.
+            5. Demand zone must be far (>30 pips) or broken.
+            """,
+
+                "GBP/JPY": """
+            ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200, both with strong upward slope.
+            2. Fib zone (0.5 or 0.618) touched with RSI < 30 + spike in ATR.
+            3. Strong bullish candle with large body and high volume.
+            4. No major resistance within 35 pips.
+            5. Second bullish candle confirms continuation.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 and both falling quickly.
+            2. Price rejects fib zone with large upper wick and RSI > 70.
+            3. High-volume bearish engulfing or breakdown candle.
+            4. Clean close below support with no recent bounce levels in 30+ pips.
+            5. RSI momentum down + ATR rising.
+            """,
+
+                "EUR/GBP": """
+            ✅ Long Trade (Buy):
+            1. EMA 50 > EMA 200 (slight slope acceptable if RSI and divergence align).
+            2. RSI < 30 with hidden bullish divergence.
+            3. Candle structure: 2–3 small bullish candles forming a base, then a breakout.
+            4. Tick volume rising with breakout candle > prior highs.
+            5. Resistance clearly broken and not retested in last 25 bars.
+
+            🔻 Short Trade (Sell):
+            1. EMA 50 < EMA 200 (any slope).
+            2. RSI > 70 and bearish divergence against price.
+            3. 2–3 small candles with lower highs, followed by a large bearish candle.
+            4. Volume increasing throughout candle sequence, then breakout.
+            5. Support zone clearly broken and momentum confirmed.
+            """
+            }
+
+
+        return strategies.get(pair, "No strategy defined for this pair.")
 
 
     

@@ -219,9 +219,9 @@ class Trader:
 
     def getForexNews(self)->str:
 
-        prompt = "Find for me forex news for pair {self.current_pair} for today return me in JSON format, including impact and forecast those"
+        prompt = f"Find for me forex news for pair {self.current_pair} for today return me in JSON format, including impact and forecast those"
         response = self.claude_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-7-sonnet-20250219",
             messages=[
                 {
                     "role": "user",
