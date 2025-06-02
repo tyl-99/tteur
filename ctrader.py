@@ -237,7 +237,7 @@ class Trader:
     def analyze_with_claude(self, prompt):
        
         response = self.claude_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-7-sonnet-20250219",
             messages=[
                 {
                     "role": "user",
