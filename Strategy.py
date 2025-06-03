@@ -69,7 +69,21 @@ class Strategy:
 
         📈 Strategy Summary (for {pair} 30min):
         **This is USD Account**
-        {Strategy.get_strategy(pair)}
+        ✅ Long Trade (Buy):
+        1. Trend must be bullish: EMA 50 is clearly above EMA 200 and both EMAs sloping upward.
+        2. A recent swing low and high must allow for drawing a Fibonacci retracement.
+        3. Price must retrace to **around the 0.5 or 0.618 Fibonacci level**, then bounce up.
+        4. RSI (14) should dip below 30 and start rising (oversold recovery).
+        5. A **bullish candle must close clearly above** the retracement level with volume confirmation (if available).
+        6. Confirm no major resistance directly overhead.
+
+        🔻 Short Trade (Sell):
+        1. Trend must be bearish: EMA 50 is below EMA 200 and both sloping downward.
+        2. Identify recent swing high and low for Fibonacci.
+        3. Price must pull back to the **0.5 or 0.618 level**, then reject downward.
+        4. RSI (14) should go above 70 and turn downward (overbought condition).
+        5. A **bearish candle must close clearly below** the retracement level with increasing volume.
+        6. Confirm no major support just below.
 
         💵 Risk Management:
         - Account size: $1000
