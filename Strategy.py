@@ -73,8 +73,8 @@ class Strategy:
 
         💵 Risk Management:
         - Account size: $1000
-        - Risk per trade: $50
-        - Target R:R = 1:3
+        - Risk per trade: $50(TAKE NOTE THIS IS MAXIMUM RISK)
+        - Target R:R = 1:3(MUST AT LEAST 1:3 OR MORE RISK REWARD RATIO)
         - SL = Based on technical level
         - Use formula: lot_size = 30 / (SL_pips * pip_value)
 
