@@ -17,6 +17,7 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from twisted.internet import reactor
+from google import genai
 
 
 # Forex symbols mapping with IDs
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 class Trader:
     def __init__(self):
+        self.gemini_apikey = os.getenv("GEMINI_APIKEY")
         self.client_id = os.getenv("CTRADER_CLIENT_ID")
         self.client_secret = os.getenv("CTRADER_CLIENT_SECRET")
         self.account_id = int(os.getenv("CTRADER_ACCOUNT_ID"))
@@ -213,9 +215,9 @@ class Trader:
         df.sort_values('timestamp', inplace=True)
         df['timestamp'] = df['timestamp'].astype(str)
         self.trendbar = df
-        news = self.getForexNews()
-        prompt = Strategy.strategy(df=df, pair=self.current_pair,news=news)
-        self.analyze_with_claude(prompt)
+        #news = self.getForexNews()
+        prompt = Strategy.strategy(df=df, pair=self.current_pair)
+        self.analyze_with_gemini(prompt)
 
     def getForexNews(self)->str:
 
@@ -234,29 +236,65 @@ class Trader:
         return claude_response
         
 
-    def analyze_with_claude(self, prompt):
+    # def analyze_with_claude(self, prompt):
        
-        response = self.claude_client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            max_tokens=1024
+    #     response = self.claude_client.messages.create(
+    #         model="claude-3-7-sonnet-20250219",
+    #         messages=[
+    #             {
+    #                 "role": "user",
+    #                 "content": prompt,
+    #             }
+    #         ],
+    #         max_tokens=1024
+    #     )
+    #     claude_response = response.content[0].text
+    #     logger.info(f"\n=== Claude's Decision for {self.current_pair} ===")
+    #     logger.info(json.dumps(claude_response, indent=2))
+        
+    #     # Remove markdown code block (```json ... ```)
+    #     claude_decision = re.sub(r"```json\n|```", "", claude_response).strip()
+
+    #     # Parse the JSON
+    #     claude_decision = json.loads(claude_decision)
+
+    #     decision = claude_decision.get("decision")
+
+    #     if(decision == "NO TRADE"):
+    #         #self.send_pushover_notification()
+    #         if(self.pairIndex<len(self.pairs)-1):
+    #             self.pairIndex += 1
+    #             self.run_trading_cycle(self.pairs[self.pairIndex])
+    #         elif(self.pairIndex == len(self.pairs)-1):
+    #             print("All Key pairs done.")
+    #             reactor.stop()
+    #     else:
+    #         volume = round(float(claude_decision.get("volume")),2)*100000
+    #         stop_loss = float(claude_decision.get("stop_loss"))
+    #         take_profit = float(claude_decision.get("take_profit"))
+
+    #         self.sendOrderReq(self.current_pair, volume,stop_loss,take_profit,decision)
+    #         #self.send_pushover_notification()
+    #         #self.get_symbol_list()
+    
+    def analyze_with_gemini(self, prompt):
+
+        client = genai.Client(api_key=self.gemini_apikey)
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash", contents=prompt
         )
-        claude_response = response.content[0].text
-        logger.info(f"\n=== Claude's Decision for {self.current_pair} ===")
-        logger.info(json.dumps(claude_response, indent=2))
+        gemini_response = response.text
+        logger.info(f"\n=== Gemini's Decision for {self.current_pair} ===")
+        logger.info(json.dumps(gemini_response, indent=2))
         
         # Remove markdown code block (```json ... ```)
-        claude_decision = re.sub(r"```json\n|```", "", claude_response).strip()
+        gemini_decision = re.sub(r"```json\n|```", "", gemini_response).strip()
 
         # Parse the JSON
-        claude_decision = json.loads(claude_decision)
+        gemini_decision = json.loads(gemini_decision)
 
-        decision = claude_decision.get("decision")
+        decision = gemini_decision.get("decision")
 
         if(decision == "NO TRADE"):
             #self.send_pushover_notification()
@@ -267,9 +305,9 @@ class Trader:
                 print("All Key pairs done.")
                 reactor.stop()
         else:
-            volume = round(float(claude_decision.get("volume")),2)*100000
-            stop_loss = float(claude_decision.get("stop_loss"))
-            take_profit = float(claude_decision.get("take_profit"))
+            volume = round(float(gemini_decision.get("volume")),2)*100000
+            stop_loss = float(gemini_decision.get("stop_loss"))
+            take_profit = float(gemini_decision.get("take_profit"))
 
             self.sendOrderReq(self.current_pair, volume,stop_loss,take_profit,decision)
             #self.send_pushover_notification()

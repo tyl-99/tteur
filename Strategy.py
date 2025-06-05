@@ -6,7 +6,7 @@ class Strategy:
         pass
 
     @staticmethod
-    def strategy(df, pair, news) -> str:
+    def strategy(df, pair) -> str:
     
         # Calculate EMA50 and EMA200
         ema50_series = df['close'].ewm(span=50, adjust=False).mean()
@@ -113,7 +113,7 @@ class Strategy:
         "volume calculation": "Explain how volume was calculated"
         }}
 
-        Forex News for today : {news}
+        
         
         Data: {analysis_bundle}
         """

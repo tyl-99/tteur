@@ -1825,3 +1825,38 @@
 2025-06-02 07:55:49,599 - __main__ - INFO - 
 === Claude's Decision for GBP/JPY ===
 2025-06-02 07:55:49,599 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"EMA 50 < EMA 200 but both EMAs have shallow negative slopes (-0.0668 and -0.02746), RSI at 37.15 is neutral, price near fib 50% but no strong reversal signal, last candle is tiny doji with minimal volume showing indecision\",\n  \"winrate\": \"0%\",\n  \"volume calculation\": \"No trade setup qualifies - neither bullish nor bearish conditions fully met\"\n}\n```"
+2025-06-05 08:52:58,513 - __main__ - INFO - Processing EUR/USD
+2025-06-05 08:52:58,517 - __main__ - INFO - Processing GBP/USD
+2025-06-05 08:52:58,517 - __main__ - INFO - Processing USD/JPY
+2025-06-05 08:53:01,736 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2025-06-05 08:54:11,655 - __main__ - INFO - Processing EUR/USD
+2025-06-05 08:54:11,656 - __main__ - INFO - Processing GBP/USD
+2025-06-05 08:54:11,657 - __main__ - INFO - Processing USD/JPY
+2025-06-05 08:54:13,073 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2025-06-05 08:55:45,873 - __main__ - INFO - Processing EUR/USD
+2025-06-05 08:55:45,875 - __main__ - INFO - Processing GBP/USD
+2025-06-05 08:55:45,876 - __main__ - INFO - Processing USD/JPY
+2025-06-05 08:56:15,744 - __main__ - INFO - Processing EUR/USD
+2025-06-05 08:56:15,745 - __main__ - INFO - Processing GBP/USD
+2025-06-05 08:56:15,745 - __main__ - INFO - Processing USD/JPY
+2025-06-05 08:56:16,993 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-05 08:56:20,824 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-05 08:56:20,831 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-05 08:56:20,831 - __main__ - INFO - 
+=== Gemini's Decision for USD/JPY ===
+2025-06-05 08:56:20,832 - __main__ - INFO - "```json\n{\n\"volume\": null,\n\"decision\": \"NO TRADE\",\n\"entry_price\": null,\n\"stop_loss\": null,\n\"take_profit\": null,\n\"reason\": \"EMA50 is below EMA200 indicating a bearish trend, but both EMAs are sloping downwards. RSI is around 50, not indicating overbought or oversold conditions. Last candle closed bearish but not with increasing volume below the retracement level. No strong signal for short trade.\",\n\"winrate\": null,\n\"volume calculation\": null\n}\n```"
+2025-06-05 08:56:20,832 - __main__ - INFO - Processing EUR/JPY
+2025-06-05 08:56:20,832 - __main__ - INFO - Processing EUR/GBP
+2025-06-05 08:56:21,253 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-05 08:56:24,454 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-05 08:56:24,456 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-05 08:56:24,457 - __main__ - INFO - 
+=== Gemini's Decision for EUR/GBP ===
+2025-06-05 08:56:24,457 - __main__ - INFO - "```json\n{\n        \"volume\": 0.4,\n        \"decision\": \"NO TRADE\",\n        \"entry_price\": 0.0,\n        \"stop_loss\": 0.0,\n        \"take_profit\": 0.0,\n        \"reason\": \"EMA 50 is above EMA 200 and both are sloping upwards, suggesting a bullish trend. A Fibonacci retracement can be drawn from the recent swing low of 0.8416 to the recent swing high of 0.84291. The price has retraced to the 0.618 Fibonacci level (0.8421). However, RSI is at 58.06, not in the oversold territory (below 30). Also, we want to see a bullish candle close clearly above the retracement level (0.618) with volume confirmation, which has not happened. Given these conditions are not met, there is no trade currently.\",\n        \"winrate\": \"0%\",\n        \"volume calculation\": \"Not applicable. No trade.\"\n}\n```"
+2025-06-05 08:56:24,460 - __main__ - INFO - Processing GBP/JPY
+2025-06-05 08:56:24,889 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-05 08:56:26,814 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-05 08:56:26,816 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-05 08:56:26,817 - __main__ - INFO - 
+=== Gemini's Decision for GBP/JPY ===
+2025-06-05 08:56:26,817 - __main__ - INFO - "```json\n{\n\"volume\": 0.0,\n\"decision\": \"NO TRADE\",\n\"entry_price\": 0.0,\n\"stop_loss\": 0.0,\n\"take_profit\": 0.0,\n\"reason\": \"EMA50 is below EMA200, indicating a downtrend, but both EMAs are sloping downwards. This is still bearish, however, The RSI is at 39.19, so it's not in overbought territory. The last candle closed at 193.388, which is not clearly below the retracement level. These conditions do not align strongly for a short trade. Therefore, no trade is recommended.\",\n\"winrate\": \"0%\",\n\"volume calculation\": \"N/A\"\n}\n```"
