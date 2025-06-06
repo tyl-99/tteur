@@ -18,6 +18,8 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from twisted.internet import reactor
 from google import genai
+import threading
+import sys
 
 
 # Forex symbols mapping with IDs
@@ -415,6 +417,14 @@ class Trader:
 
 if __name__ == "__main__":
     load_dotenv()
+    def force_exit():
+        print("Program exceeded 5 minutes. Exiting.")
+        reactor.stop()
+        sys.exit(1)
+
+    timer = threading.Timer(300, force_exit)  # 300 seconds = 5 minutes
+    timer.start()
+
     trader = Trader()
     
 
