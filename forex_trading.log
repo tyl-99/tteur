@@ -1884,3 +1884,54 @@
 2025-06-05 08:59:15,182 - __main__ - INFO - 
 === Gemini's Decision for GBP/JPY ===
 2025-06-05 08:59:15,183 - __main__ - INFO - "```json\n{\n\"volume\": 0.16,\n\"decision\": \"NO TRADE\",\n\"entry_price\": 0.0,\n\"stop_loss\": 0.0,\n\"take_profit\": 0.0,\n\"reason\": \"EMA50 is below EMA200. Both EMAs are sloping downward. So the trend is bearish. But the RSI is 39.19 which is not above 70. Also, the last candle did not close below the retracement level. So, no short trade.\",\n\"winrate\": \"0%\",\n\"volume calculation\": \"Not Applicable\"\n}\n```"
+2025-06-09 16:17:55,088 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:20:53,320 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:23:59,545 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:25:02,723 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:25:58,002 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:32:24,837 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:40:26,372 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:50:42,959 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:55:02,633 - __main__ - INFO - Processing EUR/USD
+2025-06-09 16:56:05,123 - __main__ - INFO - Processing EUR/USD
+2025-06-09 17:00:29,503 - __main__ - INFO - Processing EUR/USD
+2025-06-09 19:50:30,010 - __main__ - INFO - Processing EUR/USD
+2025-06-09 19:51:56,471 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:02:03,233 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:07:43,906 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:08:18,657 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:09:29,430 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:10:55,623 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:12:13,223 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:12:13,225 - __main__ - ERROR - Error processing EUR/USD: 'NoneType' object has no attribute 'clear'
+2025-06-09 20:13:43,538 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:14:36,257 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:15:36,775 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:16:40,151 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:20:03,545 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:21:34,370 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:22:58,930 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:46:06,792 - __main__ - INFO - Processing EUR/USD
+2025-06-09 20:46:13,213 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-09 20:46:19,232 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-09 20:46:19,237 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-09 20:46:19,238 - __main__ - INFO - 
+=== Gemini's Decision for EUR/USD ===
+2025-06-09 20:46:19,239 - __main__ - INFO - "```json\n{\n  \"volume\": null,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": null,\n  \"stop_loss\": null,\n  \"take_profit\": null,\n  \"reason\": \"Trend conditions not met for either BUY or SELL. EMA 50 (1.14155) is above EMA 200 (1.14096) but EMA 50 slope (-0.00011) is not upward, failing the bullish trend rule. EMA 50 is not below EMA 200, failing the bearish trend rule.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": null,\n  \"potential_win_usd\": null,\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-09 20:46:19,239 - __main__ - INFO - Processing GBP/USD
+2025-06-09 20:46:20,584 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-09 20:46:32,696 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-09 20:46:32,698 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-09 20:46:32,698 - __main__ - INFO - 
+=== Gemini's Decision for GBP/USD ===
+2025-06-09 20:46:32,698 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Multiple conditions not met: Trend not strictly bullish (EMA50 slope is negative), price is currently below the target Fibonacci retracement levels (0.5/0.618), RSI is not below 30 for a bullish setup or above 70 for a bearish setup, and the last candle is a small bearish candle not confirming a bounce from the Fib levels with volume.\",\n  \"winrate\": \"Low\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": \"N/A\",\n  \"potential_win_usd\": \"N/A\",\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-09 20:46:32,700 - __main__ - INFO - Processing USD/JPY
+2025-06-09 20:46:32,700 - __main__ - INFO - Processing EUR/JPY
+2025-06-09 20:46:32,701 - __main__ - INFO - Processing EUR/GBP
+2025-06-09 20:46:32,701 - __main__ - INFO - Processing GBP/JPY
+2025-06-09 20:46:34,604 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-09 20:46:42,991 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-09 20:46:42,992 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-09 20:46:42,992 - __main__ - INFO - 
+=== Gemini's Decision for GBP/JPY ===
+2025-06-09 20:46:42,993 - __main__ - INFO - "```json\n{\n  \"volume\": null,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": null,\n  \"stop_loss\": null,\n  \"take_profit\": null,\n  \"reason\": \"Strict conditions for BUY or SELL are not met. Trend is bullish (EMA 50 > EMA 200 and both sloping up), aligning with a potential BUY setup, but RSI (54.07) is not in the oversold recovery zone (<30), and the volume on the confirming bullish candle is very low (133.0), lacking confirmation. SELL conditions are not met as the trend is not bearish.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": null,\n  \"potential_win_usd\": null,\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"

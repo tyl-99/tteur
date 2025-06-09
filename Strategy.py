@@ -56,7 +56,8 @@ class Strategy:
                 'close': float(df['close'].iloc[-1]),
                 'high': float(df['high'].iloc[-1]),
                 'low': float(df['low'].iloc[-1]),
-                'volume': float(df['volume'].iloc[-1])
+                'volume': float(df['volume'].iloc[-1]),
+                'timestamp': str(df['timestamp'].iloc[-1])
             },
             'pair': pair,
             'recent_candles': candle_data
@@ -87,14 +88,32 @@ class Strategy:
 
         💵 Risk Management:
         - Account size: $1000
-        - Risk per trade: $50(TAKE NOTE THIS IS MAXIMUM RISK)
-        - Target R:R = 1:3(MUST AT LEAST 1:3 OR MORE RISK REWARD RATIO)
+        - Risk per trade: $50 (TAKE NOTE THIS IS MAXIMUM RISK)
+        - Target R:R = 1:3 (MUST AT LEAST 1:3 OR MORE RISK REWARD RATIO)
         - SL = Based on technical level
-        - Use formula: lot_size = 30 / (SL_pips * pip_value)
+        - Use formula: lot_size = risk_amount / (SL_pips * pip_value)
 
-        📐 Pip Rules:
-        - EUR/USD, GBP/USD, EUR/GBP: pip = 0.0001, value = $10
-        - USD/JPY, EUR/JPY, GBP/JPY: pip = 0.01, values accordingly
+        📐 Pip Rules (Per Standard Lot):
+        **Major Pairs (4-decimal places):**
+        - EUR/USD: pip = 0.0001, value = $10 per lot
+        - GBP/USD: pip = 0.0001, value = $10 per lot
+        - EUR/GBP: pip = 0.0001, value = $10 per lot
+        
+        **JPY Pairs (2-decimal places):**
+        - USD/JPY: pip = 0.01, value ≈ $9.09 per lot (varies with rate)
+        - EUR/JPY: pip = 0.01, value ≈ $9.09 per lot
+        - GBP/JPY: pip = 0.01, value ≈ $9.09 per lot
+        
+        **Volume Calculation Examples:**
+        - EUR/USD: If SL = 20 pips → Volume = $50 / (20 × $10) = 0.25 lots
+        - USD/JPY: If SL = 30 pips → Volume = $50 / (30 × $9.09) = 0.183 lots
+        - Max volume allowed = 0.5 lots (to prevent over-leverage)
+        
+        **Risk-Reward Calculation:**
+        - SL Distance (pips) = |Entry Price - Stop Loss| / Pip Size
+        - TP Distance (pips) = SL Distance × 3 (for 1:3 R:R minimum)
+        - Actual R:R = TP Distance / SL Distance
+        - Must be ≥ 1:3 to qualify for trade
 
         🎯 Objective:
         - Use strict filtering. If the setup is not strong, return "NO TRADE".
@@ -110,7 +129,13 @@ class Strategy:
         "take_profit": float,
         "reason": "Short justification",
         "winrate": "Confidence %",
-        "volume calculation": "Explain how volume was calculated"
+        "volume_calculation": "Explain how volume was calculated",
+        "risk_reward_ratio": "Show R:R calculation (e.g., 1:3.2)",
+        "risk_reward_calculation": "Explain how R:R was calculated with pip distances",
+        "potential_loss_usd": "Maximum loss in USD if SL hit",
+        "potential_win_usd": "Profit in USD if TP hit",
+        "loss_calculation": "Explain how potential loss was calculated",
+        "win_calculation": "Explain how potential profit was calculated"
         }}
 
         

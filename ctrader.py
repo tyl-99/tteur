@@ -124,13 +124,29 @@ class Trader:
         print("User authenticated.")
         self.getActivePosition()
 
-    def sendOrderReq(self, symbol, volume, stop_loss, take_profit, decision):
+    def sendOrderReq(self, symbol, trade_data):
+        # Extract data from the trade_data object
+        volume = round(float(trade_data.get("volume")), 2) * 100000
+        stop_loss = float(trade_data.get("stop_loss"))
+        take_profit = float(trade_data.get("take_profit"))
+        decision = trade_data.get("decision")
+        
+        # Store additional trade info for notifications/logging
         self.pending_order = {
             "symbol": symbol,
             "volume": volume,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
-            "decision": decision
+            "decision": decision,
+            "entry_price": float(trade_data.get("entry_price", 0)),
+            "reason": trade_data.get("reason", ""),
+            "winrate": trade_data.get("winrate", ""),
+            "risk_reward_ratio": trade_data.get("risk_reward_ratio", ""),
+            "potential_loss_usd": trade_data.get("potential_loss_usd", ""),
+            "potential_win_usd": trade_data.get("potential_win_usd", ""),
+            "volume_calculation": trade_data.get("volume_calculation", ""),
+            "loss_calculation": trade_data.get("loss_calculation", ""),
+            "win_calculation": trade_data.get("win_calculation", "")
         }
         self.active_order.append(self.pending_order)
         symbol_id = forex_symbols.get(self.pending_order["symbol"])
@@ -189,8 +205,12 @@ class Trader:
         request = ProtoOAGetTrendbarsReq()
         request.ctidTraderAccountId = self.account_id
         request.period = ProtoOATrendbarPeriod.Value(self.trendbarReq[1])
-        request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(weeks=int(self.trendbarReq[0]))).utctimetuple())) * 1000
-        request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
+        if(period != "M1"):
+            request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(weeks=int(self.trendbarReq[0]))).utctimetuple())) * 1000
+            request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
+        elif(period == "M1"):
+            request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(minutes=40)).utctimetuple())) * 1000
+            request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
         request.symbolId = int(forex_symbols.get(self.trendbarReq[2]))
         self.trendbarReq = None
         deferred = self.client.send(request, clientMsgId=None)
@@ -214,11 +234,33 @@ class Trader:
             })
         
         df = pd.DataFrame(data)
-        df.sort_values('timestamp', inplace=True)
+        df.sort_values('timestamp', inplace=True, ascending=False)
         df['timestamp'] = df['timestamp'].astype(str)
-        self.trendbar = df
+        if len(self.trendbar) == 0:
+            self.trendbar = df
+        else:
+            # Keep the head (latest value) regardless of minutes
+            df_head = df.head(1)
+            
+            # Filter to keep only rows where minutes are 00 or 30
+            df_filtered = df[df['timestamp'].str.extract(r':(\d{2}):')[0].isin(['00', '30'])]
+            if not df_filtered.empty:
+                # Keep the latest filtered value (first row since sorted descending)
+                df_filtered = df_filtered.head(1)
+                # Combine head and filtered data
+                df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
+            else:
+                # If no 00 or 30 minute data, just use the head
+                df = df_head
+            self.trendbar = pd.concat([self.trendbar, df], ignore_index=True)
         #news = self.getForexNews()
-        prompt = Strategy.strategy(df=df, pair=self.current_pair)
+        #self.sendTrendbarReq(weeks=4, period="M30", symbolId=pair_name)
+        if not self.latest_data:
+            self.latest_data = True
+            self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair)
+            return
+        self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
+        prompt = Strategy.strategy(df=self.trendbar, pair=self.current_pair)
         self.analyze_with_gemini(prompt)
 
     def getForexNews(self)->str:
@@ -284,7 +326,7 @@ class Trader:
         client = genai.Client(api_key=self.gemini_apikey)
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=prompt
+            model="gemini-2.5-flash-preview-04-17", contents=prompt
         )
         gemini_response = response.text
         logger.info(f"\n=== Gemini's Decision for {self.current_pair} ===")
@@ -307,33 +349,87 @@ class Trader:
                 print("All Key pairs done.")
                 reactor.stop()
         else:
-            volume = round(float(gemini_decision.get("volume")),2)*100000
-            stop_loss = float(gemini_decision.get("stop_loss"))
-            take_profit = float(gemini_decision.get("take_profit"))
+            
 
-            self.sendOrderReq(self.current_pair, volume,stop_loss,take_profit,decision)
+            self.sendOrderReq(self.current_pair, gemini_decision)
             #self.send_pushover_notification()
             #self.get_symbol_list()
     
     def send_pushover_notification(self):
-        # Replace with your actual credentials from Pushover
         APP_TOKEN = "ah7dehvsrm6j3pmwg9se5h7svwj333"
         USER_KEY = "u4ipwwnphbcs2j8iiosg3gqvompfs2"
+
+        # Create organized message with all trade details
+        message = self.format_trade_notification()
 
         payload = {
             "token": APP_TOKEN,
             "user": USER_KEY,
-            "message": f"{self.pending_order['decision']} Executed for Pair {self.pending_order['symbol']}\nStop Loss :{self.pending_order['stop_loss']} ; Take Profit:{self.pending_order['take_profit']}"
+            "message": message,
+            "title": f"🚀 {self.pending_order['decision']} Trade Alert - {self.pending_order['symbol']}",
+            "priority": 1,  # High priority for trade notifications
+            "sound": "cashregister"  # Custom sound for trade alerts
         }
 
         try:
             response = requests.post("https://api.pushover.net/1/messages.json", data=payload)
             if response.status_code == 200:
-                print("📲 Pushover notification sent successfully.")
+                print("📲 Enhanced Pushover notification sent successfully.")
+                logger.info(f"Trade notification sent for {self.pending_order['symbol']}")
             else:
                 print(f"❌ Failed to send notification. Status: {response.status_code}, Error: {response.text}")
+                logger.error(f"Pushover notification failed: {response.text}")
         except Exception as e:
             print(f"❌ Error sending Pushover notification: {e}")
+            logger.error(f"Pushover notification error: {str(e)}")
+
+    def format_trade_notification(self):
+        """Format comprehensive trade notification message"""
+        
+        # Header with trade action and pair
+        message_parts = [
+            f"🎯 {self.pending_order['decision']} TRADE EXECUTED",
+            f"💱 Pair: {self.pending_order['symbol']}",
+            "",
+            "📊 TRADE DETAILS:",
+            f"Entry: ${self.pending_order.get('entry_price', 'Market Price'):.5f}",
+            f"Stop Loss: ${self.pending_order['stop_loss']:.5f}",
+            f"Take Profit: ${self.pending_order['take_profit']:.5f}",
+            f"Volume: {self.pending_order['volume'] / 100000:.2f} lots",
+            "",
+            "📈 RISK ANALYSIS:",
+            f"R:R Ratio: {self.pending_order.get('risk_reward_ratio', 'N/A')}",
+            f"Max Risk: {self.pending_order.get('potential_loss_usd', '$50')}",
+            f"Potential Win: {self.pending_order.get('potential_win_usd', 'N/A')}",
+            f"Confidence: {self.pending_order.get('winrate', 'N/A')}",
+            "",
+            "💡 STRATEGY REASON:",
+            f"{self.pending_order.get('reason', 'Technical analysis setup')[:100]}{'...' if len(self.pending_order.get('reason', '')) > 100 else ''}",
+            "",
+            "🔢 CALCULATIONS:",
+            f"Volume: {self.pending_order.get('volume_calculation', 'Risk-based sizing')}",
+            f"Loss: {self.pending_order.get('loss_calculation', 'SL distance calculation')}",
+            f"Win: {self.pending_order.get('win_calculation', 'TP distance calculation')}",
+            "",
+            f"⏰ {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        ]
+        
+        return "\n".join(message_parts)
+
+    def format_compact_notification(self):
+        """Alternative compact version for shorter notifications"""
+        
+        compact_message = (
+            f"🚀 {self.pending_order['decision']} {self.pending_order['symbol']}\n"
+            f"📊 Entry: ${self.pending_order.get('entry_price', 0):.5f}\n"
+            f"🛑 SL: ${self.pending_order['stop_loss']:.5f} | 🎯 TP: ${self.pending_order['take_profit']:.5f}\n"
+            f"📈 R:R: {self.pending_order.get('risk_reward_ratio', 'N/A')} | 🎲 Conf: {self.pending_order.get('winrate', 'N/A')}\n"
+            f"💰 Risk: {self.pending_order.get('potential_loss_usd', '$50')} | Win: {self.pending_order.get('potential_win_usd', 'N/A')}\n"
+            f"💡 {self.pending_order.get('reason', '')[:80]}{'...' if len(self.pending_order.get('reason', '')) > 80 else ''}\n"
+            f"⏰ {datetime.datetime.now().strftime('%H:%M:%S')}"
+        )
+        
+        return compact_message
     
     def getActivePosition(self):
         req = ProtoOAReconcileReq()
@@ -396,6 +492,8 @@ class Trader:
             logger.info(f"Processing {pair_name}")
 
             symbol_id = forex_symbols.get(pair_name)
+            self.latest_data  = False
+            self.trendbar = []
 
             if(self.is_symbol_active(symbol_id)):
                 print(f"{pair_name} is currently Active!")
