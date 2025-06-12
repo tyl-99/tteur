@@ -39,7 +39,7 @@ class Strategy:
         # Convert timestamps to string for JSON
         df_copy = df.copy()
         df_copy['timestamp'] = df_copy['timestamp'].astype(str)
-        candle_data = df_copy.tail(100).to_dict(orient='records')
+        candle_data = df_copy.tail(300).to_dict(orient='records')
 
         analysis = {
             'ema50': float(round(ema50, 5)),
