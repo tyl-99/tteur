@@ -1972,3 +1972,87 @@
 2025-06-12 22:45:20,593 - __main__ - INFO - Processing EUR/USD
 2025-06-12 22:46:37,436 - __main__ - INFO - Processing EUR/USD
 2025-06-12 22:47:21,301 - __main__ - INFO - Processing EUR/USD
+2025-06-12 23:54:26,810 - __main__ - INFO - Processing EUR/USD
+2025-06-12 23:54:29,601 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:54:42,661 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:54:42,666 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:54:42,666 - __main__ - INFO - 
+=== Gemini's Decision for EUR/USD ===
+2025-06-12 23:54:42,666 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bullish, so short setup is invalid. For a long setup, while price retraced to the 0.5 Fib level and bounced, the RSI (60.04) did not dip below 30 and start rising, failing a key condition for a high-probability long trade.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": 0.0,\n  \"potential_win_usd\": 0.0,\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-12 23:54:42,667 - __main__ - INFO - Processing GBP/USD
+2025-06-12 23:54:44,747 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:54:53,773 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:54:53,776 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:54:53,776 - __main__ - INFO - 
+=== Gemini's Decision for GBP/USD ===
+2025-06-12 23:54:53,776 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Bullish trend confirmed, but price is not currently at the 0.5 or 0.618 Fibonacci retracement level for a potential bounce entry. RSI is not oversold. Last candle lacks clear bullish confirmation from the zone.\",\n  \"winrate\": \"Low\",\n  \"volume_calculation\": \"N/A - No trade\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A - No trade\",\n  \"potential_loss_usd\": 0.0,\n  \"potential_win_usd\": 0.0,\n  \"loss_calculation\": \"N/A - No trade\",\n  \"win_calculation\": \"N/A - No trade\"\n}\n```"
+2025-06-12 23:54:53,777 - __main__ - INFO - Processing USD/JPY
+2025-06-12 23:54:55,582 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:55:07,506 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:55:07,509 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:55:07,509 - __main__ - INFO - 
+=== Gemini's Decision for USD/JPY ===
+2025-06-12 23:55:07,510 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bearish (EMA 50 < EMA 200, both sloping down), and price is within the 0.5-0.618 Fibonacci retracement zone. However, the RSI (44.52) is not overbought (above 70), and the last candle's volume (100.0) is extremely low, failing volume confirmation. Key conditions for a high-probability sell setup are not met.\",\n  \"winrate\": \"0%\",\n  \"volume_calculation\": \"No trade setup.\",\n  \"risk_reward_ratio\": \"No trade setup.\",\n  \"risk_reward_calculation\": \"No trade setup.\",\n  \"potential_loss_usd\": \"0.0\",\n  \"potential_win_usd\": \"0.0\",\n  \"loss_calculation\": \"No trade setup.\",\n  \"win_calculation\": \"No trade setup.\"\n}\n```"
+2025-06-12 23:55:07,523 - __main__ - INFO - Processing EUR/JPY
+2025-06-12 23:55:09,611 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:55:21,045 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:55:21,046 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:55:21,047 - __main__ - INFO - 
+=== Gemini's Decision for EUR/JPY ===
+2025-06-12 23:55:21,047 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Bullish trade conditions not met. Although the trend is bullish (EMA 50 above EMA 200 and sloping up), the RSI (56.57) is not in the oversold zone (<30) and rising as required by the strategy. Price is currently above the 0.5/0.618 Fibonacci retracement levels, not bouncing from them.\",\n  \"winrate\": \"Low\",\n  \"volume_calculation\": \"N/A - No trade triggered\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": 0.0,\n  \"potential_win_usd\": 0.0,\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-12 23:55:21,047 - __main__ - INFO - Processing EUR/GBP
+2025-06-12 23:55:22,592 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:55:34,441 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:55:34,443 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:55:34,444 - __main__ - INFO - 
+=== Gemini's Decision for EUR/GBP ===
+2025-06-12 23:55:34,445 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bullish (EMA 50 > EMA 200, both sloping up) and price retraced to the Fib 50% level (0.85176). However, the RSI is 53.2, not below 30, and the last candle is bearish with very low volume, failing the bullish candle and volume confirmation criteria.\",\n  \"winrate\": \"Low confidence (Conditions not fully met)\",\n  \"volume_calculation\": \"N/A - No trade\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": \"N/A\",\n  \"potential_win_usd\": \"N/A\",\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-12 23:55:34,445 - __main__ - INFO - Processing GBP/JPY
+2025-06-12 23:55:36,566 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-12 23:55:48,587 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-12 23:55:48,589 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-12 23:55:48,589 - __main__ - INFO - 
+=== Gemini's Decision for GBP/JPY ===
+2025-06-12 23:55:48,590 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bearish (EMA 50 below EMA 200 and both sloping down), but RSI is neutral (54.06) not indicating an overbought condition for a potential SELL. The last candle is bullish and has not shown a clear rejection from the Fibonacci 0.5/0.618 zone with a bearish close below the level, as required for a SELL signal.\",\n  \"winrate\": \"Low Confidence\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": \"0.0\",\n  \"potential_win_usd\": \"0.0\",\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-13 08:55:58,400 - __main__ - INFO - Processing EUR/USD
+2025-06-13 08:56:01,329 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:56:10,882 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:56:10,891 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:56:10,892 - __main__ - INFO - 
+=== Gemini's Decision for EUR/USD ===
+2025-06-13 08:56:10,892 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Strategy conditions not met. Trend is bullish (EMA50 > EMA200, both sloping up), but price has retraced below the 0.5/0.618 Fibonacci levels and RSI is not indicating an oversold recovery. No bullish confirmation candle at the key retracement area.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": 0.0,\n  \"potential_win_usd\": 0.0,\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-13 08:56:10,892 - __main__ - INFO - Processing GBP/USD
+2025-06-13 08:56:12,193 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:56:23,563 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:56:23,565 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:56:23,565 - __main__ - INFO - 
+=== Gemini's Decision for GBP/USD ===
+2025-06-13 08:56:23,566 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Strategy conditions not met. While the trend is bullish (EMA50 > EMA200 and both sloping up), the price retraced significantly below the target 0.5 and 0.618 Fibonacci levels (current price 1.35679 vs Fib 0.618 at 1.35916). The last candle is bearish and the RSI is 38.36, not meeting the oversold condition (<30). No valid BUY or SELL signal.\",\n  \"winrate\": \"N/A - No trade setup identified\",\n  \"volume_calculation\": \"N/A - No trade setup identified\",\n  \"risk_reward_ratio\": \"N/A - No trade setup identified\",\n  \"risk_reward_calculation\": \"N/A - No trade setup identified\",\n  \"potential_loss_usd\": \"0.00\",\n  \"potential_win_usd\": \"0.00\",\n  \"loss_calculation\": \"N/A - No trade setup identified\",\n  \"win_calculation\": \"N/A - No trade setup identified\"\n}\n```"
+2025-06-13 08:56:23,566 - __main__ - INFO - Processing USD/JPY
+2025-06-13 08:56:25,189 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:56:35,475 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:56:35,477 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:56:35,477 - __main__ - INFO - 
+=== Gemini's Decision for USD/JPY ===
+2025-06-13 08:56:35,477 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bearish (EMA50 < EMA200 and sloping down), but price is not currently at the 0.5 or 0.618 Fibonacci retracement levels for a short setup. RSI is also below 30, not above 70 for a bearish setup. No valid trade according to the strategy rules.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"N/A\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": \"N/A\",\n  \"potential_win_usd\": \"N/A\",\n  \"loss_calculation\": \"N/A\",\n  \"win_calculation\": \"N/A\"\n}\n```"
+2025-06-13 08:56:35,478 - __main__ - INFO - Processing EUR/JPY
+2025-06-13 08:56:37,214 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:56:48,356 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:56:48,359 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:56:48,360 - __main__ - INFO - 
+=== Gemini's Decision for EUR/JPY ===
+2025-06-13 08:56:48,360 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend conditions are not clearly met for either bullish or bearish setup. Price is not at the required Fibonacci retracement levels (0.5 or 0.618) for a potential entry.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"\",\n  \"potential_loss_usd\": \"0.0\",\n  \"potential_win_usd\": \"0.0\",\n  \"loss_calculation\": \"\",\n  \"win_calculation\": \"\"\n}\n```"
+2025-06-13 08:56:48,361 - __main__ - INFO - Processing EUR/GBP
+2025-06-13 08:56:50,164 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:57:05,320 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:57:05,326 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:57:05,326 - __main__ - INFO - 
+=== Gemini's Decision for EUR/GBP ===
+2025-06-13 08:57:05,328 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bullish, but BUY setup conditions (RSI not oversold, last candle bearish, low volume, resistance overhead) were not strictly met. SELL setup trend condition was not met.\",\n  \"winrate\": \"N/A\",\n  \"volume_calculation\": \"\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"\",\n  \"potential_loss_usd\": 0.0,\n  \"potential_win_usd\": 0.0,\n  \"loss_calculation\": \"\",\n  \"win_calculation\": \"\"\n}\n```"
+2025-06-13 08:57:05,328 - __main__ - INFO - Processing GBP/JPY
+2025-06-13 08:57:08,136 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-13 08:57:17,325 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent "HTTP/1.1 200 OK"
+2025-06-13 08:57:17,327 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-13 08:57:17,328 - __main__ - INFO - 
+=== Gemini's Decision for GBP/JPY ===
+2025-06-13 08:57:17,328 - __main__ - INFO - "```json\n{\n  \"volume\": 0.0,\n  \"decision\": \"NO TRADE\",\n  \"entry_price\": 0.0,\n  \"stop_loss\": 0.0,\n  \"take_profit\": 0.0,\n  \"reason\": \"Trend is bearish (EMA50 < EMA200, both sloping down) but price is significantly below the 0.5/0.618 Fibonacci retracement levels from the recent swing high/low. RSI is oversold (20.7), not overbought as required for a short setup. Conditions for both long and short trades are not met.\",\n  \"winrate\": \"0%\",\n  \"volume_calculation\": \"N/A - No trade\",\n  \"risk_reward_ratio\": \"N/A\",\n  \"risk_reward_calculation\": \"N/A\",\n  \"potential_loss_usd\": \"0.0\",\n  \"potential_win_usd\": \"0.0\",\n  \"loss_calculation\": \"N/A - No trade\",\n  \"win_calculation\": \"N/A - No trade\"\n}\n```"

@@ -514,6 +514,7 @@ class Trader:
             logger.error(f"Error processing {pair_name}: {str(e)}")
 
 if __name__ == "__main__":
+    print("Start Execution>>>>>>>>")
     load_dotenv()
     def force_exit():
         print("Program exceeded 5 minutes. Exiting.")
