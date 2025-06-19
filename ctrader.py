@@ -362,23 +362,23 @@ class Trader:
             df = pd.DataFrame(data)
             df.sort_values('timestamp', inplace=True, ascending=False)
             df['timestamp'] = df['timestamp'].astype(str)
-            if len(self.trendbar) == 0:
+            if self.trendbar.empty:
                 self.trendbar = df
             else:
                 # Keep the head (latest value) regardless of minutes
-                df_head = df.head(1)
+                #df_head = df.head(1)
                 
                 # Filter to keep only rows where minutes are 00 or 30
                 df_filtered = df[df['timestamp'].str.extract(r':(\d{2}):')[0].isin(['00', '30'])]
-                if not df_filtered.empty:
+                #if not df_filtered.empty:
                     # Keep the latest filtered value (first row since sorted descending)
-                    df_filtered = df_filtered.head(1)
+                    #df_filtered = df_filtered.head(1)
                     # Combine head and filtered data
-                    df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
-                else:
+                    #df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
+                #else:
                     # If no 00 or 30 minute data, just use the head
-                    df = df_head
-                self.trendbar = pd.concat([self.trendbar, df], ignore_index=True)
+                    #df = df_head
+                self.trendbar = pd.concat([df_filtered.head(1), self.trendbar], ignore_index=True)
             
             
             if not self.latest_data:
@@ -630,7 +630,7 @@ class Trader:
 
             symbol_id = forex_symbols.get(pair_name)
             self.latest_data  = False
-            self.trendbar = []
+            self.trendbar = pd.DataFrame()
 
             if(self.is_symbol_active(symbol_id)):
                 print(f"{pair_name} is currently Active!")

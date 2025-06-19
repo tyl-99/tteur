@@ -2928,3 +2928,47 @@
 === Strategy Decision for EUR/GBP ===
 2025-06-19 23:14:58,991 - __main__ - INFO - Decision: NO TRADE
 2025-06-19 23:14:58,991 - __main__ - INFO - No trade signal for EUR/GBP
+2025-06-19 23:29:32,728 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:29:37,768 - __main__ - INFO - 
+=== Strategy Decision for USD/JPY ===
+2025-06-19 23:29:37,769 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:29:37,770 - __main__ - INFO - No trade signal for USD/JPY
+2025-06-19 23:29:39,780 - __main__ - INFO - Processing EUR/USD
+2025-06-19 23:29:44,668 - __main__ - INFO - 
+=== Strategy Decision for EUR/USD ===
+2025-06-19 23:29:44,668 - __main__ - INFO - Decision: BUY
+2025-06-19 23:29:44,668 - __main__ - INFO - Trade signal: {'decision': 'BUY', 'entry_price': np.float64(1.14702), 'stop_loss': np.float64(1.14674), 'take_profit': np.float64(1.1478599999999994), 'volume': np.float64(1.785714285715332), 'reason': 'Supply/Demand zone: demand zone at 1.14694-1.14772', 'risk_reward_ratio': '3.00', 'potential_loss_usd': '$50.00', 'potential_win_usd': '$150.00', 'winrate': '55%+', 'volume_calculation': '1.79 lots for $50.0 risk', 'loss_calculation': '2.8 pips × $10.0/pip × 1.79 lots', 'win_calculation': '8.4 pips × $10.0/pip × 1.79 lots'}
+2025-06-19 23:29:45,883 - __main__ - INFO - Trade notification sent for EUR/USD
+2025-06-19 23:32:25,581 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:32:30,378 - __main__ - INFO - 
+=== Strategy Decision for USD/JPY ===
+2025-06-19 23:32:30,379 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:32:30,379 - __main__ - INFO - No trade signal for USD/JPY
+2025-06-19 23:32:32,390 - __main__ - INFO - Processing EUR/USD
+2025-06-19 23:32:36,409 - __main__ - INFO - 
+=== Strategy Decision for EUR/USD ===
+2025-06-19 23:32:36,410 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:32:36,410 - __main__ - INFO - No trade signal for EUR/USD
+2025-06-19 23:32:38,414 - __main__ - INFO - Processing EUR/JPY
+2025-06-19 23:32:43,443 - __main__ - INFO - 
+=== Strategy Decision for EUR/JPY ===
+2025-06-19 23:32:43,444 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:32:43,444 - __main__ - INFO - No trade signal for EUR/JPY
+2025-06-19 23:32:45,448 - __main__ - INFO - Processing GBP/JPY
+2025-06-19 23:32:47,450 - __main__ - INFO - Processing GBP/USD
+2025-06-19 23:32:52,441 - __main__ - INFO - 
+=== Strategy Decision for GBP/USD ===
+2025-06-19 23:32:52,441 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:32:52,441 - __main__ - INFO - No trade signal for GBP/USD
+2025-06-19 23:32:54,446 - __main__ - INFO - Processing EUR/GBP
+2025-06-19 23:32:59,431 - __main__ - INFO - 
+=== Strategy Decision for EUR/GBP ===
+2025-06-19 23:32:59,432 - __main__ - INFO - Decision: NO TRADE
+2025-06-19 23:32:59,433 - __main__ - INFO - No trade signal for EUR/GBP
+2025-06-19 23:33:11,894 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:34:23,877 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:36:06,826 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:39:25,907 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:40:16,383 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:42:59,646 - __main__ - INFO - Processing USD/JPY
+2025-06-19 23:44:23,651 - __main__ - INFO - Processing USD/JPY
