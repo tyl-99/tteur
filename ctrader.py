@@ -379,6 +379,7 @@ class Trader:
                     # If no 00 or 30 minute data, just use the head
                     #df = df_head
                 self.trendbar = pd.concat([df_filtered.head(1), self.trendbar], ignore_index=True)
+                self.trendbar = self.trendbar.head(300)
             
             
             if not self.latest_data:
