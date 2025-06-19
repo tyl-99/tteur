@@ -3,23 +3,30 @@ import pandas as pd
 import requests
 import pandas as pd
 import numpy as np
-import anthropic
 import logging
 import json
 import re
 import os
+import time
 from dotenv import load_dotenv
-from Strategy import Strategy
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
+from twisted.internet.defer import TimeoutError
 from ctrader_open_api import Client, Protobuf, TcpProtocol, Auth, EndPoints
 from ctrader_open_api.endpoints import EndPoints
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from twisted.internet import reactor
-from google import genai
 import threading
 import sys
+
+# Import our optimized strategies
+from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
+from strategy.gbpusd_strategy import GBPUSDDemandStrategy
+from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
+from strategy.usdjpy_strategy import USDJPYStrategy
+from strategy.gbpjpy_strategy import GBPJPYStrategy
+from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
 
 
 # Forex symbols mapping with IDs
@@ -44,13 +51,9 @@ logger = logging.getLogger(__name__)
 
 class Trader:
     def __init__(self):
-        self.gemini_apikey = os.getenv("GEMINI_APIKEY")
         self.client_id = os.getenv("CTRADER_CLIENT_ID")
         self.client_secret = os.getenv("CTRADER_CLIENT_SECRET")
         self.account_id = int(os.getenv("CTRADER_ACCOUNT_ID"))
-
-        self.claude_api_key = os.getenv("ANTHROPIC_API_KEY")
-        self.claude_client = anthropic.Anthropic(api_key=self.claude_api_key)
         
         self.host = EndPoints.PROTOBUF_DEMO_HOST
         self.client = Client(self.host, EndPoints.PROTOBUF_PORT, TcpProtocol)
@@ -64,21 +67,76 @@ class Trader:
 
         self.pairIndex = 0
         self.pairs = [
-            {'from': 'EUR', 'to': 'USD'},
-            {'from': 'GBP', 'to': 'USD'},
             {'from': 'USD', 'to': 'JPY'},
+            {'from': 'EUR', 'to': 'USD'},
             {'from': 'EUR', 'to': 'JPY'},
+            {'from': 'GBP', 'to': 'JPY'},
+            {'from': 'GBP', 'to': 'USD'},
             {'from': 'EUR', 'to': 'GBP'},
-            {'from': 'GBP', 'to': 'JPY'}
+            
         ]
         self.current_pair = None
 
         self.active_order = []
+        
+        # Add retry tracking
+        self.retry_count = 0
+        self.max_retries = 1  # Only retry once with volume/2
+        self.original_trade_data = None
+        
+        # Add timeout and API retry tracking
+        self.api_retry_count = 0
+        self.max_api_retries = 3
+        self.api_timeout = 15  # seconds
+        self.request_delay = 2  # seconds between requests
+
+        # Initialize strategy instances for each pair
+        self.strategies = {
+            "EUR/USD": EURUSDSupplyDemandStrategy(),
+            "GBP/USD": GBPUSDDemandStrategy(),
+            "EUR/GBP": EURGBPSupplyDemandStrategy(),
+            "USD/JPY": USDJPYStrategy(),
+            "GBP/JPY": GBPJPYStrategy(),
+            "EUR/JPY": EURJPYSupplyDemandStrategy()
+        }
 
         self.connect()
         
     def onError(self, failure):
-        print("Error:", failure)
+        """Enhanced error handler with timeout handling"""
+        error_type = type(failure.value).__name__
+        
+        if "TimeoutError" in error_type:
+            logger.warning(f"⏰ API timeout for {self.current_pair}. Retry {self.api_retry_count + 1}/{self.max_api_retries}")
+            
+            if self.api_retry_count < self.max_api_retries:
+                self.api_retry_count += 1
+                # Wait before retry
+                reactor.callLater(self.request_delay * self.api_retry_count, self.retry_last_request)
+                return
+            else:
+                logger.error(f"❌ Max API retries reached for {self.current_pair}. Skipping.")
+                self.reset_api_retry_state()
+                self.move_to_next_pair()
+        else:
+            print(f"Error: {failure}")
+            # For non-timeout errors, also move to next pair
+            self.reset_api_retry_state()
+            self.move_to_next_pair()
+
+    def retry_last_request(self):
+        """Retry the last API request that timed out"""
+        logger.info(f"🔄 Retrying API request for {self.current_pair}")
+        
+        # Add small delay to avoid overwhelming the API
+        time.sleep(1)
+        
+        # Retry the trendbar request
+        self.sendTrendbarReq(weeks=4, period="M30", symbolId=self.current_pair)
+
+    def reset_api_retry_state(self):
+        """Reset API retry tracking"""
+        self.api_retry_count = 0
 
     def connected(self, client):
         print("Connected to server.")
@@ -127,6 +185,10 @@ class Trader:
     def sendOrderReq(self, symbol, trade_data):
         # Extract data from the trade_data object
         volume = round(float(trade_data.get("volume")), 2) * 100000
+        # Ensure volume is multiple of 1000 (cTrader requirement)
+        volume = round(volume / 1000) * 1000
+        # Ensure minimum volume of 1000
+        volume = max(volume, 1000)
         stop_loss = float(trade_data.get("stop_loss"))
         take_profit = float(trade_data.get("take_profit"))
         decision = trade_data.get("decision")
@@ -167,6 +229,8 @@ class Trader:
             print(f"Placing {order.tradeSide} order for symbol {order.symbolId} with volume {order.volume}")
 
             deferred = self.client.send(order)
+            # Add timeout to order request
+            deferred.addTimeout(self.api_timeout, reactor)
             deferred.addCallbacks(self.onOrderSent, self.onError)
         else:
             print(f"{self.pending_order['symbol']} symbol not found in the dictionary!")
@@ -175,32 +239,79 @@ class Trader:
         print("Market order sent successfully!")
         message = Protobuf.extract(response)
         print(message)
-        position_id = message.position.positionId 
-        self.send_pushover_notification()
-        self.amend_sl_tp(position_id, self.pending_order["stop_loss"], self.pending_order["take_profit"])
+        
+        # Check if order was successful (errorCode exists but is empty string when successful)
+        if hasattr(message, 'errorCode') and message.errorCode:
+            description = getattr(message, 'description', 'No description available')
+            print(f"❌ Order failed: {message.errorCode} - {description}")
+            self.move_to_next_pair()
+            return
+        
+        if hasattr(message, 'position') and message.position:
+            position_id = message.position.positionId 
+            self.send_pushover_notification()
+            self.amend_sl_tp(position_id, self.pending_order["stop_loss"], self.pending_order["take_profit"])
+        else:
+            print("❌ No position created in response")
+            self.move_to_next_pair()
 
     def amend_sl_tp(self, position_id, stop_loss_price, take_profit_price):
         amend = ProtoOAAmendPositionSLTPReq()
         amend.ctidTraderAccountId = self.account_id
         amend.positionId = position_id
-        amend.stopLoss = stop_loss_price
-        amend.takeProfit = take_profit_price
+        
+        # Round prices to appropriate precision (5 decimal places for most pairs, 3 for JPY pairs)
+        if 'JPY' in self.current_pair:
+            amend.stopLoss = round(float(stop_loss_price), 3)
+            amend.takeProfit = round(float(take_profit_price), 3)
+        else:
+            amend.stopLoss = round(float(stop_loss_price), 5)
+            amend.takeProfit = round(float(take_profit_price), 5)
 
-        print(f"Setting SL {stop_loss_price} and TP {take_profit_price} for position {position_id}")
+        print(f"Setting SL {amend.stopLoss} and TP {amend.takeProfit} for position {position_id}")
 
         deferred = self.client.send(amend)
+        # Add timeout to amend request
+        deferred.addTimeout(self.api_timeout, reactor)
         deferred.addCallbacks(self.onAmendSent, self.onError)
 
     def onAmendSent(self, response):
-        print("Amend SL/TP sent successfully!")
-        if(self.pairIndex<len(self.pairs)-1):
-            self.pairIndex += 1
-            self.run_trading_cycle(self.pairs[self.pairIndex])
-        elif(self.pairIndex == len(self.pairs)-1):
-            print("All Key pairs done.")
-            reactor.stop()
+        message = Protobuf.extract(response)
+        
+        # Check if amendment was successful (errorCode exists but is empty string when successful)
+        if hasattr(message, 'errorCode') and message.errorCode:
+            description = getattr(message, 'description', 'No description available')
+            print(f"❌ SL/TP amendment failed: {message.errorCode} - {description}")
+            
+            # Check if it's a POSITION_NOT_FOUND error and we haven't retried yet
+            if message.errorCode == "POSITION_NOT_FOUND" and self.retry_count < self.max_retries:
+                print(f"🔄 Retrying trade with volume/2 (attempt {self.retry_count + 1}/{self.max_retries})")
+                self.retry_count += 1
+                
+                # Retry with volume/2
+                if self.original_trade_data:
+                    retry_trade_data = self.original_trade_data.copy()
+                    retry_trade_data["volume"] = retry_trade_data["volume"] / 2
+                    print(f"📉 Reducing volume from {self.original_trade_data['volume']:.2f} to {retry_trade_data['volume']:.2f} lots")
+                    self.sendOrderReq(self.current_pair, retry_trade_data)
+                    return
+            else:
+                if self.retry_count >= self.max_retries:
+                    print(f"❌ Max retries ({self.max_retries}) reached for {self.current_pair}. Skipping.")
+                self.reset_retry_state()
+        else:
+            print("✅ Amend SL/TP sent successfully!")
+            self.reset_retry_state()
+        
+        self.move_to_next_pair()
+
+    def reset_retry_state(self):
+        """Reset retry tracking variables"""
+        self.retry_count = 0
+        self.original_trade_data = None
 
     def sendTrendbarReq(self, weeks, period, symbolId):
+        """Enhanced trendbar request with timeout and retry handling"""
         self.trendbarReq = (weeks,period,symbolId)
         request = ProtoOAGetTrendbarsReq()
         request.ctidTraderAccountId = self.account_id
@@ -213,147 +324,171 @@ class Trader:
             request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
         request.symbolId = int(forex_symbols.get(self.trendbarReq[2]))
         self.trendbarReq = None
+        
+        
         deferred = self.client.send(request, clientMsgId=None)
+        # Add timeout handling
+        deferred.addTimeout(self.api_timeout, reactor)
         deferred.addCallbacks(self.onTrendbarDataReceived, self.onError)
 
     def onTrendbarDataReceived(self, response):
+        """Enhanced trendbar data processing with validation"""
         print("Trendbar data received:")
-        parsed = Protobuf.extract(response)
-        trendbars = parsed.trendbar  # This is a list of trendbar objects
         
-        # Convert trendbars to DataFrame
-        data = []
-        for tb in trendbars:
-            data.append({
-                'timestamp': datetime.datetime.utcfromtimestamp(tb.utcTimestampInMinutes * 60),
-                'open': (tb.low + tb.deltaOpen) / 1e5,
-                'high': (tb.low + tb.deltaHigh) / 1e5,
-                'low': tb.low / 1e5,
-                'close': (tb.low + tb.deltaClose) / 1e5,
-                'volume': tb.volume
-            })
+        # Reset API retry count on successful response
+        self.reset_api_retry_state()
         
-        df = pd.DataFrame(data)
-        df.sort_values('timestamp', inplace=True, ascending=False)
-        df['timestamp'] = df['timestamp'].astype(str)
-        if len(self.trendbar) == 0:
-            self.trendbar = df
-        else:
-            # Keep the head (latest value) regardless of minutes
-            df_head = df.head(1)
+        try:
+            parsed = Protobuf.extract(response)
+            trendbars = parsed.trendbar  # This is a list of trendbar objects
             
-            # Filter to keep only rows where minutes are 00 or 30
-            df_filtered = df[df['timestamp'].str.extract(r':(\d{2}):')[0].isin(['00', '30'])]
-            if not df_filtered.empty:
-                # Keep the latest filtered value (first row since sorted descending)
-                df_filtered = df_filtered.head(1)
-                # Combine head and filtered data
-                df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
+            if not trendbars:
+                logger.warning(f"⚠️ No trendbar data received for {self.current_pair}")
+                self.move_to_next_pair()
+                return
+            
+            # Convert trendbars to DataFrame
+            data = []
+            for tb in trendbars:
+                data.append({
+                    'timestamp': datetime.datetime.utcfromtimestamp(tb.utcTimestampInMinutes * 60),
+                    'open': (tb.low + tb.deltaOpen) / 1e5,
+                    'high': (tb.low + tb.deltaHigh) / 1e5,
+                    'low': tb.low / 1e5,
+                    'close': (tb.low + tb.deltaClose) / 1e5,
+                    'volume': tb.volume
+                })
+            
+            df = pd.DataFrame(data)
+            df.sort_values('timestamp', inplace=True, ascending=False)
+            df['timestamp'] = df['timestamp'].astype(str)
+            if len(self.trendbar) == 0:
+                self.trendbar = df
             else:
-                # If no 00 or 30 minute data, just use the head
-                df = df_head
-            self.trendbar = pd.concat([self.trendbar, df], ignore_index=True)
-        #news = self.getForexNews()
-        #self.sendTrendbarReq(weeks=4, period="M30", symbolId=pair_name)
-        if not self.latest_data:
-            self.latest_data = True
-            self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair)
-            return
-        self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
-        prompt = Strategy.strategy(df=self.trendbar, pair=self.current_pair)
-        self.analyze_with_gemini(prompt)
-
-    def getForexNews(self)->str:
-
-        prompt = f"Find for me forex news for pair {self.current_pair} for today return me in JSON format, including impact and forecast those"
-        response = self.claude_client.messages.create(
-            model="claude-3-7-sonnet-20250219",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            max_tokens=1024
-        )
-        claude_response = response.content[0].text
-        return claude_response
-        
-
-    # def analyze_with_claude(self, prompt):
-       
-    #     response = self.claude_client.messages.create(
-    #         model="claude-3-7-sonnet-20250219",
-    #         messages=[
-    #             {
-    #                 "role": "user",
-    #                 "content": prompt,
-    #             }
-    #         ],
-    #         max_tokens=1024
-    #     )
-    #     claude_response = response.content[0].text
-    #     logger.info(f"\n=== Claude's Decision for {self.current_pair} ===")
-    #     logger.info(json.dumps(claude_response, indent=2))
-        
-    #     # Remove markdown code block (```json ... ```)
-    #     claude_decision = re.sub(r"```json\n|```", "", claude_response).strip()
-
-    #     # Parse the JSON
-    #     claude_decision = json.loads(claude_decision)
-
-    #     decision = claude_decision.get("decision")
-
-    #     if(decision == "NO TRADE"):
-    #         #self.send_pushover_notification()
-    #         if(self.pairIndex<len(self.pairs)-1):
-    #             self.pairIndex += 1
-    #             self.run_trading_cycle(self.pairs[self.pairIndex])
-    #         elif(self.pairIndex == len(self.pairs)-1):
-    #             print("All Key pairs done.")
-    #             reactor.stop()
-    #     else:
-    #         volume = round(float(claude_decision.get("volume")),2)*100000
-    #         stop_loss = float(claude_decision.get("stop_loss"))
-    #         take_profit = float(claude_decision.get("take_profit"))
-
-    #         self.sendOrderReq(self.current_pair, volume,stop_loss,take_profit,decision)
-    #         #self.send_pushover_notification()
-    #         #self.get_symbol_list()
-    
-    def analyze_with_gemini(self, prompt):
-
-        client = genai.Client(api_key=self.gemini_apikey)
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-04-17", contents=prompt
-        )
-        gemini_response = response.text
-        logger.info(f"\n=== Gemini's Decision for {self.current_pair} ===")
-        logger.info(json.dumps(gemini_response, indent=2))
-        
-        # Remove markdown code block (```json ... ```)
-        gemini_decision = re.sub(r"```json\n|```", "", gemini_response).strip()
-
-        # Parse the JSON
-        gemini_decision = json.loads(gemini_decision)
-
-        decision = gemini_decision.get("decision")
-
-        if(decision == "NO TRADE"):
-            #self.send_pushover_notification()
-            if(self.pairIndex<len(self.pairs)-1):
-                self.pairIndex += 1
-                self.run_trading_cycle(self.pairs[self.pairIndex])
-            elif(self.pairIndex == len(self.pairs)-1):
-                print("All Key pairs done.")
-                reactor.stop()
-        else:
+                # Keep the head (latest value) regardless of minutes
+                df_head = df.head(1)
+                
+                # Filter to keep only rows where minutes are 00 or 30
+                df_filtered = df[df['timestamp'].str.extract(r':(\d{2}):')[0].isin(['00', '30'])]
+                if not df_filtered.empty:
+                    # Keep the latest filtered value (first row since sorted descending)
+                    df_filtered = df_filtered.head(1)
+                    # Combine head and filtered data
+                    df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
+                else:
+                    # If no 00 or 30 minute data, just use the head
+                    df = df_head
+                self.trendbar = pd.concat([self.trendbar, df], ignore_index=True)
             
+            
+            if not self.latest_data:
+                self.latest_data = True
+                # Add delay before next request
+                reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
+                return
+            
+            self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
+            self.analyze_with_our_strategy()
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing trendbar data for {self.current_pair}: {e}")
+            self.move_to_next_pair()
 
-            self.sendOrderReq(self.current_pair, gemini_decision)
-            #self.send_pushover_notification()
-            #self.get_symbol_list()
+    def analyze_with_our_strategy(self):
+        """Analyze market data using our optimized supply/demand strategies"""
+        try:
+            # Get the appropriate strategy for this pair
+            strategy = self.strategies.get(self.current_pair)
+            if not strategy:
+                logger.warning(f"No strategy found for {self.current_pair}")
+                self.move_to_next_pair()
+                return
+            
+            # Analyze the market data
+            signal = strategy.analyze_trade_signal(self.trendbar, self.current_pair)
+            
+            logger.info(f"\n=== Strategy Decision for {self.current_pair} ===")
+            logger.info(f"Decision: {signal.get('decision')}")
+            
+            if signal.get("decision") == "NO TRADE":
+                logger.info(f"No trade signal for {self.current_pair}")
+                self.move_to_next_pair()
+            else:
+                # Convert our strategy signal to the format expected by sendOrderReq
+                trade_data = self.format_trade_data(signal)
+                
+                # Store original trade data for potential retry
+                if self.retry_count == 0:
+                    self.original_trade_data = trade_data.copy()
+                
+                logger.info(f"Trade signal: {trade_data}")
+                self.sendOrderReq(self.current_pair, trade_data)
+                
+        except Exception as e:
+            logger.error(f"Error analyzing {self.current_pair}: {str(e)}")
+            self.reset_retry_state()
+            self.move_to_next_pair()
+    
+    def format_trade_data(self, signal):
+        """Convert our strategy signal to ctrader format"""
+        entry_price = signal['entry_price']
+        stop_loss = signal['stop_loss']
+        take_profit = signal['take_profit']
+        
+        # Calculate risk in pips for volume calculation
+        pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
+        risk_pips = abs(entry_price - stop_loss) / pip_size
+        
+        # Target $50 risk per trade (as requested by user)
+        target_risk_usd = 50.0
+        
+        # More accurate pip values for different pairs
+        if 'JPY' in self.current_pair:
+            if self.current_pair == 'USD/JPY':
+                pip_value = 10.0  # USD/JPY: $10 per pip for 1 lot
+            else:  # EUR/JPY, GBP/JPY
+                pip_value = 7.0   # Cross JPY pairs: ~$7 per pip for 1 lot
+        else:
+            pip_value = 10.0  # Major pairs: $10 per pip for 1 lot
+        
+        volume_lots = target_risk_usd / (risk_pips * pip_value)
+        volume_lots = max(0.01, min(volume_lots, 2.0))  # Clamp between 0.01 and 2.0 lots
+        
+        # Calculate potential P&L
+        reward_pips = abs(take_profit - entry_price) / pip_size
+        potential_loss = risk_pips * pip_value * volume_lots
+        potential_win = reward_pips * pip_value * volume_lots
+        rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
+        
+        return {
+            "decision": signal['decision'],
+            "entry_price": entry_price,
+            "stop_loss": stop_loss,
+            "take_profit": take_profit,
+            "volume": volume_lots,
+            "reason": f"Supply/Demand zone: {signal['meta']['zone_type']} zone at {signal['meta']['zone_low']:.5f}-{signal['meta']['zone_high']:.5f}",
+            "risk_reward_ratio": f"{rr_ratio:.2f}",
+            "potential_loss_usd": f"${potential_loss:.2f}",
+            "potential_win_usd": f"${potential_win:.2f}",
+            "winrate": "55%+",  # Based on our backtest results
+            "volume_calculation": f"{volume_lots:.2f} lots for ${target_risk_usd} risk",
+            "loss_calculation": f"{risk_pips:.1f} pips × ${pip_value:.1f}/pip × {volume_lots:.2f} lots",
+            "win_calculation": f"{reward_pips:.1f} pips × ${pip_value:.1f}/pip × {volume_lots:.2f} lots"
+        }
+    
+    def move_to_next_pair(self):
+        """Move to the next trading pair or stop if all pairs are done"""
+        # Reset retry state when moving to next pair
+        self.reset_retry_state()
+        self.reset_api_retry_state()
+        
+        if self.pairIndex < len(self.pairs) - 1:
+            self.pairIndex += 1
+            # Add delay before processing next pair
+            reactor.callLater(self.request_delay, lambda: self.run_trading_cycle(self.pairs[self.pairIndex]))
+        else:
+            print("All trading pairs analyzed.")
+            reactor.stop()
     
     def send_pushover_notification(self):
         APP_TOKEN = "ah7dehvsrm6j3pmwg9se5h7svwj333"
@@ -399,7 +534,7 @@ class Trader:
             "",
             "📈 RISK ANALYSIS:",
             f"R:R Ratio: {self.pending_order.get('risk_reward_ratio', 'N/A')}",
-            f"Max Risk: {self.pending_order.get('potential_loss_usd', '$50')}",
+            f"Max Risk: {self.pending_order.get('potential_loss_usd', '$50.00')}",
             f"Potential Win: {self.pending_order.get('potential_win_usd', 'N/A')}",
             f"Confidence: {self.pending_order.get('winrate', 'N/A')}",
             "",
@@ -424,7 +559,7 @@ class Trader:
             f"📊 Entry: ${self.pending_order.get('entry_price', 0):.5f}\n"
             f"🛑 SL: ${self.pending_order['stop_loss']:.5f} | 🎯 TP: ${self.pending_order['take_profit']:.5f}\n"
             f"📈 R:R: {self.pending_order.get('risk_reward_ratio', 'N/A')} | 🎲 Conf: {self.pending_order.get('winrate', 'N/A')}\n"
-            f"💰 Risk: {self.pending_order.get('potential_loss_usd', '$50')} | Win: {self.pending_order.get('potential_win_usd', 'N/A')}\n"
+            f"💰 Risk: {self.pending_order.get('potential_loss_usd', '$50.00')} | Win: {self.pending_order.get('potential_win_usd', 'N/A')}\n"
             f"💡 {self.pending_order.get('reason', '')[:80]}{'...' if len(self.pending_order.get('reason', '')) > 80 else ''}\n"
             f"⏰ {datetime.datetime.now().strftime('%H:%M:%S')}"
         )
@@ -435,6 +570,8 @@ class Trader:
         req = ProtoOAReconcileReq()
         req.ctidTraderAccountId = self.account_id
         deferred = self.client.send(req)
+        # Add timeout to reconcile request
+        deferred.addTimeout(self.api_timeout, reactor)
         deferred.addCallbacks(self.onActivePositionReceived, self.onError)
                 
     def onActivePositionReceived(self, response):
@@ -497,12 +634,7 @@ class Trader:
 
             if(self.is_symbol_active(symbol_id)):
                 print(f"{pair_name} is currently Active!")
-                if(self.pairIndex<len(self.pairs)-1):
-                    self.pairIndex += 1
-                    self.run_trading_cycle(self.pairs[self.pairIndex])
-                elif(self.pairIndex == len(self.pairs)-1):
-                    print("All Key pairs done.")
-                    reactor.stop()
+                self.move_to_next_pair()
             else:
                 self.current_pair = pair_name
             
@@ -514,16 +646,30 @@ class Trader:
             logger.error(f"Error processing {pair_name}: {str(e)}")
 
 if __name__ == "__main__":
-    print("Start Execution>>>>>>>>")
-    load_dotenv()
-    def force_exit():
-        print("Program exceeded 5 minutes. Exiting.")
+    print("🚀 Starting cTrader Live Trading Bot...")
+    print("=" * 50)
+    
+    try:
+        load_dotenv()
+        
+        def force_exit():
+            print("\n⏰ Program exceeded 5 minutes. Exiting safely.")
+            reactor.stop()
+            sys.exit(0)
+
+        timer = threading.Timer(300, force_exit)  # 300 seconds = 5 minutes
+        timer.start()
+
+        print("📡 Connecting to cTrader...")
+        trader = Trader()
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Manual stop requested. Exiting...")
+        reactor.stop()
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n❌ Fatal error: {e}")
         reactor.stop()
         sys.exit(1)
-
-    timer = threading.Timer(300, force_exit)  # 300 seconds = 5 minutes
-    timer.start()
-
-    trader = Trader()
     
 
