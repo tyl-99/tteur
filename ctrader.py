@@ -89,6 +89,9 @@ class Trader:
         self.max_api_retries = 3
         self.api_timeout = 15  # seconds
         self.request_delay = 2  # seconds between requests
+        
+        # Risk management - minimum R:R ratio filter
+        self.min_rr_ratio = 2.5  # Centralized minimum R:R requirement
 
         # Initialize strategy instances for each pair
         self.strategies = {
@@ -415,6 +418,25 @@ class Trader:
                 logger.info(f"No trade signal for {self.current_pair}")
                 self.move_to_next_pair()
             else:
+                # CENTRALIZED R:R FILTER - Check R:R ratio before executing trade
+                entry_price = signal['entry_price']
+                stop_loss = signal['stop_loss']
+                take_profit = signal['take_profit']
+                
+                pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
+                risk_pips = abs(entry_price - stop_loss) / pip_size
+                reward_pips = abs(take_profit - entry_price) / pip_size
+                rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
+                
+                if rr_ratio < self.min_rr_ratio:
+                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: R:R {rr_ratio:.2f} < {self.min_rr_ratio}")
+                    logger.info(f"   Risk: {risk_pips:.1f} pips | Reward: {reward_pips:.1f} pips")
+                    print(f"⚠️ {self.current_pair}: R:R {rr_ratio:.2f} too low, minimum required: {self.min_rr_ratio}")
+                    self.move_to_next_pair()
+                    return
+                
+                logger.info(f"✅ R:R Check PASSED: {rr_ratio:.2f} ≥ {self.min_rr_ratio}")
+                
                 # Convert our strategy signal to the format expected by sendOrderReq
                 trade_data = self.format_trade_data(signal)
                 

@@ -193,13 +193,15 @@ class EURUSDSupplyDemandStrategy:
 
         if in_supply_zone:
             decision = "SELL"
-            sl = zone['price_high'] + (2 * self.pip_size)
+            # Fix: SL should be based on current_price, not zone boundary
+            sl = current_price + (5 * self.pip_size)  # SL 5 pips above current price
             risk_pips = (sl - current_price) / self.pip_size
             tp = current_price - (risk_pips * 3 * self.pip_size)
 
         elif in_demand_zone:
             decision = "BUY"
-            sl = zone['price_low'] - (2 * self.pip_size)
+            # Fix: SL should be based on current_price, not zone boundary
+            sl = current_price - (5 * self.pip_size)  # SL 5 pips below current price
             risk_pips = (current_price - sl) / self.pip_size
             tp = current_price + (risk_pips * 3 * self.pip_size)
 
@@ -243,15 +245,16 @@ class EURUSDSupplyDemandStrategy:
             if in_supply_zone:
                 zone['is_fresh'] = False # Mark as tested
                 decision = "SELL"
-                sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
-                sl = zone['price_high'] + (2 * self.pip_size)
+                sl = current_price + (5 * self.pip_size)  # SL 5 pips above current price
+                sl_pips = (sl - current_price) / self.pip_size
                 tp = current_price - (sl_pips * 3 * self.pip_size)
                 
             elif in_demand_zone:
                 zone['is_fresh'] = False # Mark as tested
                 decision = "BUY"
-                sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
-                sl = zone['price_low'] - (2 * self.pip_size)
+                # Fix: SL should be based on current_price, not zone boundary
+                sl = current_price - (5 * self.pip_size)  # SL 5 pips below current price
+                sl_pips = (current_price - sl) / self.pip_size
                 tp = current_price + (sl_pips * 3 * self.pip_size)
 
             if decision != "NO TRADE":

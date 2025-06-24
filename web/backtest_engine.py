@@ -443,7 +443,7 @@ def get_losing_trades():
         except Exception as e:
             logger.error(f"❌ Error saving candle data: {e}")
     
-    def load_excel_data(self, file_path='backtest_data/forex_data1.xlsx'):
+    def load_excel_data(self, file_path='data/backtest_data/forex_data1.xlsx'):
         """Load data for target pair from Excel file - DYNAMIC"""
         if not os.path.exists(file_path):
             logger.error(f"❌ Data file not found: {file_path}")
