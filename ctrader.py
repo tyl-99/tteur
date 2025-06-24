@@ -280,6 +280,7 @@ class Trader:
 
     def onAmendSent(self, response):
         message = Protobuf.extract(response)
+        print(message)
         
         # Check if amendment was successful (errorCode exists but is empty string when successful)
         if hasattr(message, 'errorCode') and message.errorCode:
