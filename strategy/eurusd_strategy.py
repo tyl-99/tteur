@@ -258,13 +258,6 @@ class EURUSDSupplyDemandStrategy:
                 tp = current_price + (sl_pips * 3 * self.pip_size)
 
             if decision != "NO TRADE":
-                # MINIMUM PIP FILTER - Reject trades with less than 9 pips risk
-                risk_pips = abs(current_price - sl) / self.pip_size
-                MIN_RISK_PIPS = 9
-                
-                if risk_pips < MIN_RISK_PIPS:
-                    continue  # Skip this trade and check next zone
-                
                 return {
                     "decision": decision,
                     "entry_price": current_price,
