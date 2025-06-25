@@ -92,6 +92,11 @@ class Trader:
         
         # Risk management - minimum R:R ratio filter
         self.min_rr_ratio = 2.5  # Centralized minimum R:R requirement
+        
+        # Track current position ID for closing if needed
+        self.current_position_id = None
+        # Track current position volume for accurate closing
+        self.current_position_volume = None
 
         # Initialize strategy instances for each pair
         self.strategies = {
@@ -251,8 +256,16 @@ class Trader:
             return
         
         if hasattr(message, 'position') and message.position:
-            position_id = message.position.positionId 
-            self.send_pushover_notification()
+            position_id = message.position.positionId
+            position_volume = message.position.tradeData.volume
+            
+            # Store the current position ID and volume for potential closing
+            self.current_position_id = position_id
+            self.current_position_volume = position_volume
+            
+            print(f"✅ Position created - ID: {position_id}, Volume: {position_volume}")
+            
+            # Don't send notification here - wait until SL/TP is successfully set
             self.amend_sl_tp(position_id, self.pending_order["stop_loss"], self.pending_order["take_profit"])
         else:
             print("❌ No position created in response")
@@ -278,6 +291,56 @@ class Trader:
         deferred.addTimeout(self.api_timeout, reactor)
         deferred.addCallbacks(self.onAmendSent, self.onError)
 
+    def close_position(self, position_id, volume=None):
+        """Close a position completely or partially
+        
+        Args:
+            position_id: The position ID to close
+            volume: Volume to close in 0.01 units (e.g., 1000 = 10.00 units). If None, closes full position.
+        """
+        close_req = ProtoOAClosePositionReq()
+        close_req.ctidTraderAccountId = self.account_id
+        close_req.positionId = position_id
+        
+        # Use stored position volume if available, otherwise use provided volume
+        if volume is None and self.current_position_volume:
+            volume = self.current_position_volume  # Already in protocol format
+        elif volume is None and self.pending_order:
+            volume = int(self.pending_order["volume"]) * 100  # Convert to protocol format
+        elif volume is None:
+            # Default to a small volume if we don't have position info
+            volume = 1000  # 10.00 units
+        else:
+            volume = int(volume)
+        
+        close_req.volume = volume
+        
+        print(f"🔄 Closing position {position_id} with volume {volume}")
+        
+        deferred = self.client.send(close_req)
+        deferred.addTimeout(self.api_timeout, reactor)
+        deferred.addCallbacks(self.onPositionClosed, self.onError)
+
+    def onPositionClosed(self, response):
+        """Handle position close response"""
+        print("Position close request sent!")
+        message = Protobuf.extract(response)
+        print(message)
+        
+        # Check if close was successful
+        if hasattr(message, 'errorCode') and message.errorCode:
+            description = getattr(message, 'description', 'No description available')
+            print(f"❌ Position close failed: {message.errorCode} - {description}")
+        else:
+            print("✅ Position closed successfully!")
+            # Clear the current position ID and volume since it's now closed
+            self.current_position_id = None
+            self.current_position_volume = None
+        
+        # Reset retry state and move to next pair
+        self.reset_retry_state()
+        self.move_to_next_pair()
+
     def onAmendSent(self, response):
         message = Protobuf.extract(response)
         print(message)
@@ -287,8 +350,22 @@ class Trader:
             description = getattr(message, 'description', 'No description available')
             print(f"❌ SL/TP amendment failed: {message.errorCode} - {description}")
             
+            # Check for TRADING_BAD_STOPS error - close position immediately
+            if message.errorCode == "TRADING_BAD_STOPS":
+                print(f"🚨 TRADING_BAD_STOPS detected for {self.current_pair}. Closing position immediately!")
+                logger.warning(f"TRADING_BAD_STOPS error for {self.current_pair} - closing position")
+                
+                if self.current_position_id:
+                    self.close_position(self.current_position_id)
+                    return  # Don't move to next pair yet, wait for close confirmation
+                else:
+                    print("❌ No position ID available to close")
+                    self.reset_retry_state()
+                    self.move_to_next_pair()
+                    return
+            
             # Check if it's a POSITION_NOT_FOUND error and we haven't retried yet
-            if message.errorCode == "POSITION_NOT_FOUND" and self.retry_count < self.max_retries:
+            elif message.errorCode == "POSITION_NOT_FOUND" and self.retry_count < self.max_retries:
                 print(f"🔄 Retrying trade with volume/2 (attempt {self.retry_count + 1}/{self.max_retries})")
                 self.retry_count += 1
                 
@@ -305,6 +382,8 @@ class Trader:
                 self.reset_retry_state()
         else:
             print("✅ Amend SL/TP sent successfully!")
+            # Send notification only after successful SL/TP setting
+            self.send_pushover_notification()
             self.reset_retry_state()
         
         self.move_to_next_pair()
@@ -313,6 +392,8 @@ class Trader:
         """Reset retry tracking variables"""
         self.retry_count = 0
         self.original_trade_data = None
+        self.current_position_id = None
+        self.current_position_volume = None
 
     def sendTrendbarReq(self, weeks, period, symbolId):
         """Enhanced trendbar request with timeout and retry handling"""
