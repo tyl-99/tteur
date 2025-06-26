@@ -67,12 +67,12 @@ class Trader:
 
         self.pairIndex = 0
         self.pairs = [
-            {'from': 'USD', 'to': 'JPY'},
             {'from': 'EUR', 'to': 'USD'},
-            {'from': 'EUR', 'to': 'JPY'},
-            {'from': 'GBP', 'to': 'JPY'},
+            {'from': 'USD', 'to': 'JPY'},
             {'from': 'GBP', 'to': 'USD'},
             {'from': 'EUR', 'to': 'GBP'},
+            {'from': 'GBP', 'to': 'JPY'},        
+            {'from': 'EUR', 'to': 'JPY'},
             
         ]
         self.current_pair = None
