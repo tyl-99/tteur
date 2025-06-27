@@ -66,15 +66,36 @@ class Trader:
         self.df = None
 
         self.pairIndex = 0
-        self.pairs = [
-            {'from': 'EUR', 'to': 'USD'},
+        
+        # Load pairs from environment variable or use default
+        pairs_str = os.getenv("TRADING_PAIRS")
+        default_pairs = [
             {'from': 'USD', 'to': 'JPY'},
+            {'from': 'EUR', 'to': 'USD'},
+            {'from': 'EUR', 'to': 'JPY'},
+            {'from': 'GBP', 'to': 'JPY'},
             {'from': 'GBP', 'to': 'USD'},
             {'from': 'EUR', 'to': 'GBP'},
-            {'from': 'GBP', 'to': 'JPY'},        
-            {'from': 'EUR', 'to': 'JPY'},
-            
         ]
+
+        if pairs_str:
+            print(f"✅ Loading trading pairs from environment: {pairs_str}")
+            parsed_pairs = []
+            for pair in pairs_str.split(','):
+                currencies = pair.strip().split('/')
+                if len(currencies) == 2:
+                    parsed_pairs.append({'from': currencies[0], 'to': currencies[1]})
+                else:
+                    logger.warning(f"Invalid pair format in TRADING_PAIRS: '{pair}'. Skipping.")
+            
+            if parsed_pairs:
+                self.pairs = parsed_pairs
+            else:
+                logger.error("No valid pairs found in TRADING_PAIRS. Falling back to default pairs.")
+                self.pairs = default_pairs
+        else:
+            self.pairs = default_pairs
+
         self.current_pair = None
 
         self.active_order = []
