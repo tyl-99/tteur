@@ -467,30 +467,26 @@ class Trader:
             
             df = pd.DataFrame(data)
             df.sort_values('timestamp', inplace=True, ascending=False)
-            df['timestamp'] = df['timestamp'].astype(str)
+            
             if self.trendbar.empty:
+                # First call - store M30 data as base
+                df['timestamp'] = df['timestamp'].astype(str)
                 self.trendbar = df
             else:
-                # Keep the head (latest value) regardless of minutes
-                #df_head = df.head(1)
+                # Second call - aggregate M1 data into proper 30-minute candles
+                df_30min = self.aggregate_1min_to_30min(df)
                 
-                # Filter to keep only rows where minutes are 00 or 30
-                df_filtered = df[df['timestamp'].str.extract(r':(\d{2}):')[0].isin(['00', '30'])]
-                #if not df_filtered.empty:
-                    # Keep the latest filtered value (first row since sorted descending)
-                    #df_filtered = df_filtered.head(1)
-                    # Combine head and filtered data
-                    #df = pd.concat([df_head, df_filtered], ignore_index=True).drop_duplicates()
-                #else:
-                    # If no 00 or 30 minute data, just use the head
-                    #df = df_head
-                self.trendbar = pd.concat([df_filtered.head(1), self.trendbar], ignore_index=True)
+                # Combine with existing M30 data and remove duplicates
+                df_30min['timestamp'] = df_30min['timestamp'].astype(str)
+                self.trendbar = pd.concat([df_30min, self.trendbar], ignore_index=True)
+                
+                # Remove duplicates based on timestamp and sort
+                self.trendbar = self.trendbar.drop_duplicates(subset=['timestamp'], keep='first')
                 self.trendbar = self.trendbar.head(300)
-            
             
             if not self.latest_data:
                 self.latest_data = True
-                # Add delay before next request
+                # Add delay before next request for M1 data
                 reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
                 return
             
@@ -500,6 +496,94 @@ class Trader:
         except Exception as e:
             logger.error(f"❌ Error processing trendbar data for {self.current_pair}: {e}")
             self.move_to_next_pair()
+
+    def aggregate_1min_to_30min(self, df_1min):
+        """Aggregate 1-minute candles into proper 30-minute candles aligned to 01-30 and 31-00"""
+        try:
+            # Ensure timestamp is datetime for grouping
+            df_1min = df_1min.copy()
+            df_1min['timestamp'] = pd.to_datetime(df_1min['timestamp'])
+            df_1min.sort_values('timestamp', inplace=True, ascending=True)
+            
+            # Use all 40 minutes of M1 data - the complete period filter will handle the rest
+            df_recent = df_1min.copy()
+            
+            print(f"📊 Using all M1 data: {len(df_recent)} candles (full 40min)")
+            
+            if df_recent.empty:
+                logger.warning("⚠️ No recent M1 data after filtering")
+                return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Create custom 30-minute periods: 01-30 and 31-00
+            def get_custom_period(timestamp):
+                minute = timestamp.minute
+                if 1 <= minute <= 30:
+                    # Period: XX:01 to XX:30, label as XX:30
+                    return timestamp.replace(minute=30, second=0, microsecond=0)
+                else:  # 31-59 and 00
+                    # Period: XX:31 to (XX+1):00, label as (XX+1):00
+                    if minute == 0:
+                        # 00 minute belongs to previous period (XX-1):31 to XX:00
+                        return timestamp.replace(minute=0, second=0, microsecond=0)
+                    else:
+                        # 31-59 minutes: XX:31 to (XX+1):00
+                        next_hour = timestamp + pd.Timedelta(hours=1)
+                        return next_hour.replace(minute=0, second=0, microsecond=0)
+            
+            df_recent['period'] = df_recent['timestamp'].apply(get_custom_period)
+            
+            # Group by custom 30-minute periods and get period info
+            period_groups = df_recent.groupby('period')
+            
+            # Create aggregated data with period counts
+            aggregated_data = []
+            for period, group in period_groups:
+                period_data = {
+                    'timestamp': period,
+                    'open': group['open'].iloc[0],
+                    'high': group['high'].max(),
+                    'low': group['low'].min(),
+                    'close': group['close'].iloc[-1],
+                    'volume': group['volume'].sum(),
+                    'candle_count': len(group)  # Track how many 1-min candles in this period
+                }
+                aggregated_data.append(period_data)
+            
+            aggregated = pd.DataFrame(aggregated_data)
+            
+            if aggregated.empty:
+                return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Sort by timestamp (newest first)
+            aggregated.sort_values('timestamp', inplace=True, ascending=False)
+            
+            # Filter to only complete periods (should have close to 30 candles)
+            # Allow some flexibility for missing candles (>=25 candles = complete enough)
+            complete_periods = aggregated[aggregated['candle_count'] >= 25].copy()
+            
+            if complete_periods.empty:
+                # If no complete periods, take the period with most candles
+                complete_periods = aggregated.head(1)
+                print(f"⚠️ No complete 30-min periods found, using period with {aggregated.iloc[0]['candle_count']} candles")
+            else:
+                print(f"✅ Found {len(complete_periods)} complete 30-min periods")
+            
+            # Take the most recent complete period
+            result = complete_periods.head(1).copy()
+            
+            # Remove the helper column
+            result = result.drop(columns=['candle_count'])
+            
+            if not result.empty:
+                period_end = result.iloc[0]['timestamp']
+                print(f"✅ Selected complete 30-min candle ending at: {period_end}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error aggregating 1-min to 30-min data: {e}")
+            # Return empty DataFrame on error
+            return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
 
     def analyze_with_our_strategy(self):
         """Analyze market data using our optimized supply/demand strategies"""
@@ -531,6 +615,13 @@ class Trader:
                 reward_pips = abs(take_profit - entry_price) / pip_size
                 rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
                 
+                # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 5 pips
+                if risk_pips < 5.0:
+                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 5 pips minimum")
+                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 5 pips")
+                    self.move_to_next_pair()
+                    return
+                
                 if rr_ratio < self.min_rr_ratio:
                     logger.info(f"❌ Trade REJECTED for {self.current_pair}: R:R {rr_ratio:.2f} < {self.min_rr_ratio}")
                     logger.info(f"   Risk: {risk_pips:.1f} pips | Reward: {reward_pips:.1f} pips")
@@ -538,6 +629,7 @@ class Trader:
                     self.move_to_next_pair()
                     return
                 
+                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ 5 pips")
                 logger.info(f"✅ R:R Check PASSED: {rr_ratio:.2f} ≥ {self.min_rr_ratio}")
                 
                 # Convert our strategy signal to the format expected by sendOrderReq

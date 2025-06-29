@@ -1,33 +1,173 @@
 import pandas as pd
+from typing import Dict, Any, List
 import numpy as np
-from typing import Dict, Any, Optional, List
 
 class USDJPYStrategy:
-    """
-    A Supply and Demand strategy for USD/JPY aiming for a high R:R.
-
-    Logic:
-    1. Identifies Supply and Demand zones based on strong price moves away from a consolidated base.
-       - Supply: A sharp drop after a base (Rally-Base-Drop or Drop-Base-Drop).
-       - Demand: A sharp rally after a base (Drop-Base-Rally or Rally-Base-Rally).
-    2. Enters a trade when price returns to a 'fresh' (untested) zone.
-    3. The Stop Loss is placed just outside the zone.
-    4. Enforces a strict 1:3 Risk-to-Reward ratio.
-    """
-
     def __init__(self, target_pair="USD/JPY"):
         self.target_pair = target_pair
-        
-        # --- OPTIMIZED STRATEGY PARAMETERS (From AutoTuner Results) ---
-        self.zone_lookback = 300         # How far back to look for zones (OPTIMIZED: was 200)
-        self.base_max_candles = 5        # Max number of candles in a "base" (OPTIMIZED: unchanged)
-        self.move_min_ratio = 2.0        # How strong the move out of the base must be (OPTIMIZED: unchanged)
-        self.zone_width_max_pips = 100   # Max width of a zone in pips - increased for JPY pairs
+        # --- ORIGINAL PARAMETERS (UNCHANGED) ---
+        self.zone_lookback = 300         
+        self.base_max_candles = 5        
+        self.move_min_ratio = 2.0        
+        self.zone_width_max_pips = 100   
         self.pip_size = 0.01
         
+        # --- TREND FILTER OPTIMIZED FOR 30M DATA ---
+        self.trend_ema_period = 34  # ~17 hours (better for 30M than 50)
+        
+        # --- PA FILTER SETTINGS (LESS STRICT) ---
+        self.min_rejection_pips = 5  # Minimum rejection wick size for USD/JPY (reduced from 8)
+        self.rsi_oversold = 30       # RSI level for oversold (relaxed from 25)
+        self.rsi_overbought = 70     # RSI level for overbought (relaxed from 75)
+        self.min_confluences = 1     # Minimum PA confluences required (Now testing stricter)
+        
         # --- Internal State ---
-        self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}
+        self.zones = [] 
         self.last_candle_index = -1
+
+    def _calculate_rsi(self, prices, period=14):
+        """Calculate RSI indicator"""
+        if len(prices) < period + 1:
+            return 50  # Default if not enough data
+            
+        deltas = [prices[i] - prices[i-1] for i in range(1, len(prices))]
+        gains = [max(0, delta) for delta in deltas]
+        losses = [max(0, -delta) for delta in deltas]
+        
+        avg_gain = sum(gains[:period]) / period
+        avg_loss = sum(losses[:period]) / period
+        
+        if avg_loss == 0:
+            return 100
+        
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    def _check_pa_confluence(self, df: pd.DataFrame, index: int, zone: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Check price action confluence for a trade signal
+        Only called when strategy wants to trade!
+        """
+        if index < 100:  # Need enough history
+            return {"confluences": 0, "signals": [], "trade_allowed": False}
+        
+        # Get current candle data
+        current_candle = df.iloc[index]
+        prev_candle = df.iloc[index - 1] if index > 0 else current_candle
+        
+        # Initialize confluence tracking
+        confluences = 0
+        signals = []
+        
+        # 1. CANDLESTICK PATTERN ANALYSIS
+        body_size = abs(current_candle['close'] - current_candle['open'])
+        candle_range = current_candle['high'] - current_candle['low']
+        upper_wick = current_candle['high'] - max(current_candle['open'], current_candle['close'])
+        lower_wick = min(current_candle['open'], current_candle['close']) - current_candle['low']
+        
+        pattern = "NONE"
+        
+        # Pin Bar Detection
+        if candle_range > 0:
+            upper_wick_pct = upper_wick / candle_range
+            lower_wick_pct = lower_wick / candle_range
+            body_pct = body_size / candle_range
+            
+            if (upper_wick_pct >= 0.6 and body_pct <= 0.3 and 
+                upper_wick >= body_size * 2 and zone['type'] == 'supply'):
+                pattern = "BEARISH_PIN"
+                confluences += 1
+                signals.append(f"Bearish Pin Bar")
+                
+            elif (lower_wick_pct >= 0.6 and body_pct <= 0.3 and 
+                  lower_wick >= body_size * 2 and zone['type'] == 'demand'):
+                pattern = "BULLISH_PIN"
+                confluences += 1
+                signals.append(f"Bullish Pin Bar")
+        
+        # Doji Detection (Indecision at key zone)
+        if candle_range > 0 and (body_size / candle_range) < 0.1:
+            pattern = "DOJI"
+            confluences += 1
+            signals.append("Doji (Indecision)")
+        
+        # Engulfing Pattern Detection
+        prev_body = abs(prev_candle['close'] - prev_candle['open'])
+        if (body_size > prev_body * 1.2 and 
+            ((current_candle['close'] > current_candle['open'] and zone['type'] == 'demand') or
+             (current_candle['close'] < current_candle['open'] and zone['type'] == 'supply'))):
+            if zone['type'] == 'demand':
+                pattern = "BULLISH_ENGULFING"
+                confluences += 1
+                signals.append(f"Bullish Engulfing")
+            else:
+                pattern = "BEARISH_ENGULFING"
+                confluences += 1
+                signals.append(f"Bearish Engulfing")
+        
+        # Morning/Evening Star Detection (3-candle pattern)
+        if index >= 2:
+            c1 = df.iloc[index - 2]
+            c2 = df.iloc[index - 1]
+            c3 = current_candle
+
+            c1_body = abs(c1['open'] - c1['close'])
+            c2_body = abs(c2['open'] - c2['close'])
+            avg_body = df['close'].iloc[max(0, index-22):index-2].sub(df['open'].iloc[max(0, index-22):index-2]).abs().mean()
+
+            # Morning Star (Bullish Reversal)
+            if (zone['type'] == 'demand' and
+                c1['close'] < c1['open'] and c1_body > avg_body and  # C1 is a strong bearish candle
+                c2_body < c1_body * 0.3 and                           # C2 is a small, indecisive candle
+                c3['close'] > c3['open'] and                          # C3 is a bullish candle
+                c3['close'] > (c1['open'] + c1['close']) / 2):        # C3 confirms by closing past midpoint of C1
+                pattern = "MORNING_STAR"
+                confluences += 1
+                signals.append("Morning Star")
+
+            # Evening Star (Bearish Reversal)
+            elif (zone['type'] == 'supply' and
+                  c1['close'] > c1['open'] and c1_body > avg_body and  # C1 is a strong bullish candle
+                  c2_body < c1_body * 0.3 and                           # C2 is a small, indecisive candle
+                  c3['close'] < c3['open'] and                          # C3 is a bearish candle
+                  c3['close'] < (c1['open'] + c1['close']) / 2):        # C3 confirms by closing past midpoint of C1
+                pattern = "EVENING_STAR"
+                confluences += 1
+                signals.append("Evening Star")
+        
+        # 2. REJECTION WICK ANALYSIS
+        rejection_wick_pips = 0
+        if zone['type'] == 'supply' and upper_wick > 0:
+            rejection_wick_pips = upper_wick / self.pip_size
+            if rejection_wick_pips >= self.min_rejection_pips:
+                confluences += 1
+                signals.append(f"Strong Rejection: {rejection_wick_pips:.1f} pips")
+        elif zone['type'] == 'demand' and lower_wick > 0:
+            rejection_wick_pips = lower_wick / self.pip_size
+            if rejection_wick_pips >= self.min_rejection_pips:
+                confluences += 1
+                signals.append(f"Strong Rejection: {rejection_wick_pips:.1f} pips")
+        
+        # 3. RSI MOMENTUM CONFIRMATION
+        if index >= 14:  # Need enough data for RSI
+            closes = df['close'].iloc[index-13:index+1].values
+            rsi = self._calculate_rsi(closes, 14)
+            
+            if zone['type'] == 'demand' and rsi <= self.rsi_oversold:  # Oversold for BUY
+                confluences += 1
+                signals.append(f"RSI Oversold: {rsi:.1f}")
+            elif zone['type'] == 'supply' and rsi >= self.rsi_overbought:  # Overbought for SELL
+                confluences += 1
+                signals.append(f"RSI Overbought: {rsi:.1f}")
+        
+        return {
+            "confluences": confluences,
+            "signals": signals,
+            "trade_allowed": confluences >= self.min_confluences,
+            "pattern": pattern,
+            "rejection_wick_pips": rejection_wick_pips
+        }
 
     def _is_strong_move(self, candles: pd.DataFrame) -> bool:
         """Check if the move away from the base is significant."""
@@ -178,10 +318,10 @@ class USDJPYStrategy:
         
         return sorted(unique_zones, key=lambda x: x['created_at_index'])
 
-    def check_entry_signal(self, current_price: float, zone: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def check_entry_signal(self, current_price: float, zone: Dict[str, Any], df: pd.DataFrame = None, current_index: int = None) -> Dict[str, Any]:
         """
         Checks if the current price provides an entry signal for a given fresh zone.
-        This is called on each candle against available zones.
+        NOW WITH PRICE ACTION FILTERING!
         """
         decision = "NO TRADE"
         sl = 0
@@ -202,24 +342,59 @@ class USDJPYStrategy:
             risk_pips = (current_price - sl) / self.pip_size
             tp = current_price + (risk_pips * 3 * self.pip_size)
 
-        if decision != "NO TRADE":
+        # ✅ STRATEGY WANTS TO TRADE - NOW CHECK PA CONFLUENCE!
+        if decision in ["BUY", "SELL"] and df is not None and current_index is not None:
+            pa_result = self._check_pa_confluence(df, current_index, zone)
+            
+            if pa_result['trade_allowed']:
+                # PA APPROVED - Execute trade with enhanced metadata
+                return {
+                    "decision": decision,
+                    "entry_price": current_price,
+                    "stop_loss": sl,
+                    "take_profit": tp,
+                    "zone": zone,
+                    "meta": {
+                        "pa_confluences": pa_result['confluences'],
+                        "pa_signals": pa_result['signals'],
+                        "candlestick_pattern": pa_result['pattern'],
+                        "rejection_wick_pips": pa_result['rejection_wick_pips'],
+                        "pa_enhanced": True
+                    },
+                    "note": f"PA APPROVED: {pa_result['confluences']}/4 confluences"
+                }
+            else:
+                # PA REJECTED - Block trade
+                return {
+                    "decision": "NO TRADE",
+                    "reason": f"PA BLOCKED: Only {pa_result['confluences']}/4 confluences (need {self.min_confluences})",
+                    "meta": {
+                        "pa_confluences": pa_result['confluences'],
+                        "pa_signals": pa_result['signals'],
+                        "candlestick_pattern": pa_result['pattern'],
+                        "pa_enhanced": True,
+                        "strategy_wanted": decision
+                    }
+                }
+        
+        # Original strategy logic (fallback for compatibility)
+        elif decision in ["BUY", "SELL"]:
             return {
                 "decision": decision,
                 "entry_price": current_price,
                 "stop_loss": sl,
                 "take_profit": tp,
-                "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
+                "zone": zone,
+                "note": "Original strategy - no PA data available"
             }
-        
-        return None
+        else:
+            return {"decision": "NO TRADE"}
 
     def analyze_trade_signal(self, df: pd.DataFrame, pair: str) -> Dict[str, Any]:
-        """
-        Analyzes the market data for the target pair to find trading opportunities.
-        """
+        """Strategy analysis with PA filtering - only trades when BOTH strategy + PA agree!"""
         current_candle_index = len(df) - 1
         
-        # Only recalculate zones if it's a new candle
+        # --- ORIGINAL ZONE LOGIC ---
         if self.last_candle_index != current_candle_index:
             lookback_df = df.iloc[-self.zone_lookback:].copy()
             self._find_zones(lookback_df)
@@ -227,39 +402,42 @@ class USDJPYStrategy:
 
         current_price = df['close'].iloc[-1]
         
+        # --- NEW: 30M-OPTIMIZED TREND CHECK ---
+        ema = df['close'].rolling(self.trend_ema_period).mean().iloc[-1]
+        is_uptrend = current_price > ema
+        
         for zone in self.zones:
             if not zone['is_fresh']:
                 continue
-
-            # Check for entry
-            in_supply_zone = zone['type'] == 'supply' and current_price >= zone['price_low'] and current_price <= zone['price_high']
-            in_demand_zone = zone['type'] == 'demand' and current_price >= zone['price_low'] and current_price <= zone['price_high']
-            
-            sl = 0
-            tp = 0
-            decision = "NO TRADE"
-            
-            if in_supply_zone:
-                zone['is_fresh'] = False # Mark as tested
-                decision = "SELL"
-                sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
-                sl = zone['price_high'] + (2 * self.pip_size)
-                tp = current_price - (sl_pips * 3 * self.pip_size)
                 
-            elif in_demand_zone:
-                zone['is_fresh'] = False # Mark as tested
-                decision = "BUY"
-                sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
-                sl = zone['price_low'] - (2 * self.pip_size)
-                tp = current_price + (sl_pips * 3 * self.pip_size)
-
-            if decision != "NO TRADE":
-                return {
-                    "decision": decision,
-                    "entry_price": current_price,
-                    "stop_loss": sl,
-                    "take_profit": tp,
-                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
-                }
+            # === TREND FILTER (30M-aware) ===
+            if (zone['type'] == 'demand' and not is_uptrend) or \
+               (zone['type'] == 'supply' and is_uptrend):
+                continue  # Skip counter-trend trades
                 
-        return {"decision": "NO TRADE"} 
+            # --- CHECK IF PRICE IS IN ZONE ---
+            in_zone = (zone['price_low'] <= current_price <= zone['price_high'])
+            if not in_zone:
+                continue
+
+            # ✅ STRATEGY WANTS TO TRADE - NOW CHECK WITH PA FILTER!
+            zone['is_fresh'] = False  # Mark as used
+            
+            # Call enhanced check_entry_signal with DataFrame and index for PA analysis
+            signal = self.check_entry_signal(
+                current_price=current_price, 
+                zone=zone, 
+                df=df, 
+                current_index=current_candle_index
+            )
+            
+            # If PA approved, add trend metadata and return
+            if signal.get("decision") != "NO TRADE":
+                if "meta" not in signal:
+                    signal["meta"] = {}
+                signal["meta"]["trend"] = "UP" if is_uptrend else "DOWN"
+                signal["meta"]["zone_type"] = zone['type']
+                return signal
+            # If PA rejected, continue to next zone
+        
+        return {"decision": "NO TRADE"}
