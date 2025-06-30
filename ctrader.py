@@ -491,10 +491,11 @@ class Trader:
             #     return
             
             # Print last rows of trendbar data before sorting (for debugging)
-            print(f"\n📊 {self.current_pair} - Trendbar data BEFORE sorting (showing last 5 rows):")
-            print(self.trendbar.tail().to_string())
+            
             
             self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
+            print(f"\n📊 {self.current_pair} - Trendbar data after sorting (showing last 5 rows):")
+            print(self.trendbar.tail().to_string())
             self.analyze_with_our_strategy()
             
         except Exception as e:
