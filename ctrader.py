@@ -472,23 +472,23 @@ class Trader:
                 # First call - store M30 data as base
                 df['timestamp'] = df['timestamp'].astype(str)
                 self.trendbar = df
-            else:
-                # Second call - aggregate M1 data into proper 30-minute candles
-                df_30min = self.aggregate_1min_to_30min(df)
+            # else:
+            #     # Second call - aggregate M1 data into proper 30-minute candles
+            #     df_30min = self.aggregate_1min_to_30min(df)
                 
-                # Combine with existing M30 data and remove duplicates
-                df_30min['timestamp'] = df_30min['timestamp'].astype(str)
-                self.trendbar = pd.concat([df_30min, self.trendbar], ignore_index=True)
+            #     # Combine with existing M30 data and remove duplicates
+            #     df_30min['timestamp'] = df_30min['timestamp'].astype(str)
+            #     self.trendbar = pd.concat([df_30min, self.trendbar], ignore_index=True)
                 
-                # Remove duplicates based on timestamp and sort
-                self.trendbar = self.trendbar.drop_duplicates(subset=['timestamp'], keep='first')
-                self.trendbar = self.trendbar.head(300)
+            #     # Remove duplicates based on timestamp and sort
+            #     self.trendbar = self.trendbar.drop_duplicates(subset=['timestamp'], keep='first')
+            #     self.trendbar = self.trendbar.head(300)
             
-            if not self.latest_data:
-                self.latest_data = True
-                # Add delay before next request for M1 data
-                reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
-                return
+            # if not self.latest_data:
+            #     self.latest_data = True
+            #     # Add delay before next request for M1 data
+            #     reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
+            #     return
             
             self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
             self.analyze_with_our_strategy()
