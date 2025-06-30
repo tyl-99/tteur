@@ -86,3 +86,9 @@
 === Strategy Decision for GBP/JPY ===
 2025-06-30 09:33:18,891 - __main__ - INFO - Decision: BUY
 2025-06-30 09:33:18,892 - __main__ - INFO - ❌ Trade REJECTED for GBP/JPY: Stop loss 2.2 pips < 5 pips minimum
+2025-06-30 10:17:36,141 - __main__ - INFO - Processing EUR/USD
+2025-06-30 10:18:25,253 - __main__ - INFO - Processing EUR/USD
+2025-06-30 10:20:42,442 - __main__ - INFO - Processing EUR/USD
+2025-06-30 10:21:55,759 - __main__ - INFO - Processing EUR/USD
+2025-06-30 10:22:27,731 - __main__ - INFO - Processing EUR/USD
+2025-06-30 10:23:22,987 - __main__ - INFO - Processing EUR/USD

@@ -490,6 +490,10 @@ class Trader:
             #     reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
             #     return
             
+            # Print last rows of trendbar data before sorting (for debugging)
+            print(f"\n📊 {self.current_pair} - Trendbar data BEFORE sorting (showing last 5 rows):")
+            print(self.trendbar.tail().to_string())
+            
             self.trendbar.sort_values('timestamp', inplace=True, ascending=True)
             self.analyze_with_our_strategy()
             
@@ -613,6 +617,7 @@ class Trader:
                 # Calculate R:R using direct price distances (simpler than pip conversion)
                 risk_distance = abs(entry_price - stop_loss)
                 reward_distance = abs(take_profit - entry_price)
+                
                 rr_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
                 
                 # Still need pip calculations for minimum stop loss check
