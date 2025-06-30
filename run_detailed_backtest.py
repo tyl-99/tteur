@@ -124,14 +124,18 @@ class DetailedStrategyTester:
                         pip_movement = price_diff / pip_size
                         pnl = pip_movement * pip_value * position_size - 1.0  # $1 commission
                         
+                        # Calculate R:R using direct price distances (simpler)
+                        risk_distance = abs(active_trade['entry_price'] - active_trade['stop_loss'])
+                        reward_distance = abs(active_trade['take_profit'] - active_trade['entry_price'])
+                        rr_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
+                        
+                        # Still calculate pips for reporting and P&L calculations
                         if active_trade['decision'] == "BUY":
                             risk_pips = (active_trade['entry_price'] - active_trade['stop_loss']) / pip_size
                             reward_pips = (active_trade['take_profit'] - active_trade['entry_price']) / pip_size
                         else:
                             risk_pips = (active_trade['stop_loss'] - active_trade['entry_price']) / pip_size
                             reward_pips = (active_trade['entry_price'] - active_trade['take_profit']) / pip_size
-                        
-                        rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
                         
                         # Calculate actual risk and potential reward in dollars
                         risk_amount_usd = risk_pips * pip_value * position_size

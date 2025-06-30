@@ -43,7 +43,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('forex_trading.log'),
+        logging.FileHandler('forex_trading.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -610,10 +610,14 @@ class Trader:
                 stop_loss = signal['stop_loss']
                 take_profit = signal['take_profit']
                 
+                # Calculate R:R using direct price distances (simpler than pip conversion)
+                risk_distance = abs(entry_price - stop_loss)
+                reward_distance = abs(take_profit - entry_price)
+                rr_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
+                
+                # Still need pip calculations for minimum stop loss check
                 pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
-                risk_pips = abs(entry_price - stop_loss) / pip_size
-                reward_pips = abs(take_profit - entry_price) / pip_size
-                rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
+                risk_pips = risk_distance / pip_size
                 
                 # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 5 pips
                 if risk_pips < 5.0:
@@ -623,6 +627,7 @@ class Trader:
                     return
                 
                 if rr_ratio < self.min_rr_ratio:
+                    reward_pips = reward_distance / pip_size  # Calculate for logging only
                     logger.info(f"❌ Trade REJECTED for {self.current_pair}: R:R {rr_ratio:.2f} < {self.min_rr_ratio}")
                     logger.info(f"   Risk: {risk_pips:.1f} pips | Reward: {reward_pips:.1f} pips")
                     print(f"⚠️ {self.current_pair}: R:R {rr_ratio:.2f} too low, minimum required: {self.min_rr_ratio}")
@@ -646,6 +651,25 @@ class Trader:
             logger.error(f"Error analyzing {self.current_pair}: {str(e)}")
             self.reset_retry_state()
             self.move_to_next_pair()
+    
+    def get_trade_reason(self, signal):
+        """Safely extract trade reason from signal"""
+        try:
+            if 'meta' in signal and signal['meta']:
+                meta = signal['meta']
+                zone_type = meta.get('zone_type', 'Unknown')
+                zone_low = meta.get('zone_low', 0)
+                zone_high = meta.get('zone_high', 0)
+                
+                if zone_low and zone_high:
+                    return f"Supply/Demand zone: {zone_type} zone at {zone_low:.5f}-{zone_high:.5f}"
+                else:
+                    return f"Supply/Demand zone: {zone_type} zone"
+            else:
+                return f"Supply/Demand strategy setup for {self.current_pair}"
+        except Exception as e:
+            logger.warning(f"Error extracting trade reason: {e}")
+            return f"Technical analysis setup for {self.current_pair}"
     
     def format_trade_data(self, signal):
         """Convert our strategy signal to ctrader format"""
@@ -672,11 +696,15 @@ class Trader:
         volume_lots = target_risk_usd / (risk_pips * pip_value)
         volume_lots = max(0.01, min(volume_lots, 2.0))  # Clamp between 0.01 and 2.0 lots
         
-        # Calculate potential P&L
-        reward_pips = abs(take_profit - entry_price) / pip_size
+        # Calculate R:R using direct price distances (simpler and cleaner)
+        risk_distance = abs(entry_price - stop_loss)
+        reward_distance = abs(take_profit - entry_price)
+        rr_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
+        
+        # Calculate potential P&L (still need pips for dollar calculations)
+        reward_pips = reward_distance / pip_size
         potential_loss = risk_pips * pip_value * volume_lots
         potential_win = reward_pips * pip_value * volume_lots
-        rr_ratio = reward_pips / risk_pips if risk_pips > 0 else 0
         
         return {
             "decision": signal['decision'],
@@ -684,7 +712,7 @@ class Trader:
             "stop_loss": stop_loss,
             "take_profit": take_profit,
             "volume": volume_lots,
-            "reason": f"Supply/Demand zone: {signal['meta']['zone_type']} zone at {signal['meta']['zone_low']:.5f}-{signal['meta']['zone_high']:.5f}",
+            "reason": self.get_trade_reason(signal),
             "risk_reward_ratio": f"{rr_ratio:.2f}",
             "potential_loss_usd": f"${potential_loss:.2f}",
             "potential_win_usd": f"${potential_win:.2f}",
