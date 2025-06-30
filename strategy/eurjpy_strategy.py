@@ -26,6 +26,10 @@ class EURJPYSupplyDemandStrategy:
         self.zone_width_max_pips = 30    # Max width of a zone in pips
         self.pip_size = 0.01
         
+        # --- TREND FILTERING PARAMETERS ---
+        self.trend_sma_period = 50       # SMA period for trend detection
+        self.trend_buffer_pips = 10      # Buffer around SMA for trend neutrality
+        
         # --- PA FILTER SETTINGS (LESS STRICT) ---
         self.min_rejection_pips = 5      # Minimum rejection wick size for EUR/JPY (smaller than USD/JPY)
         self.rsi_oversold = 30           # RSI level for oversold
@@ -214,23 +218,27 @@ class EURJPYSupplyDemandStrategy:
 
                     if zone_width_pips > 0 and zone_width_pips < self.zone_width_max_pips:
                         # Explosive move upwards creates a DEMAND zone
-                        if impulse_candle['close'] > base_high:
+                        if impulse_candle['close'] > base_high and self._should_create_zone('demand', df, i):
+                            trend = self._get_trend_direction(df, i)
                             self.zones.append({
                                 'type': 'demand', 
                                 'price_high': base_high, 
                                 'price_low': base_low,
-                                'created_at': i, 'is_fresh': True
+                                'created_at': i, 'is_fresh': True,
+                                'trend_at_creation': trend
                             })
                             base_found = True
                             break 
                         
                         # Explosive move downwards creates a SUPPLY zone
-                        elif impulse_candle['close'] < base_low:
+                        elif impulse_candle['close'] < base_low and self._should_create_zone('supply', df, i):
+                            trend = self._get_trend_direction(df, i)
                             self.zones.append({
                                 'type': 'supply', 
                                 'price_high': base_high, 
                                 'price_low': base_low,
-                                'created_at': i, 'is_fresh': True
+                                'created_at': i, 'is_fresh': True,
+                                'trend_at_creation': trend
                             })
                             base_found = True
                             break
@@ -292,13 +300,16 @@ class EURJPYSupplyDemandStrategy:
                         elif impulse_candle['close'] < base_low: # Explosive move down creates Supply
                             zone_type = 'supply'
                         
-                        if zone_type:
+                        # 🚨 TREND FILTERING: Only create zones aligned with trend
+                        if zone_type and self._should_create_zone(zone_type, df, i):
+                            trend = self._get_trend_direction(df, i)
                             all_zones.append({
                                 'type': zone_type, 
                                 'price_high': base_high, 
                                 'price_low': base_low,
                                 'created_at_index': i,
-                                'is_fresh': True
+                                'is_fresh': True,
+                                'trend_at_creation': trend  # Track trend when zone was created
                             })
                             base_found = True
                             break # Move to the next candle after finding a valid zone from this base
@@ -450,4 +461,50 @@ class EURJPYSupplyDemandStrategy:
                     "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
                 }
                 
-        return {"decision": "NO TRADE"} 
+        return {"decision": "NO TRADE"}
+
+    def _calculate_sma(self, prices, period):
+        """Calculate Simple Moving Average"""
+        if len(prices) < period:
+            return prices[-1] if prices else 0  # Return last price if not enough data
+        return sum(prices[-period:]) / period
+
+    def _get_trend_direction(self, df: pd.DataFrame, index: int) -> str:
+        """
+        Determine trend direction using SMA
+        Returns: 'BULLISH', 'BEARISH', or 'NEUTRAL'
+        """
+        if index < self.trend_sma_period:
+            return 'NEUTRAL'  # Not enough data for trend analysis
+            
+        # Calculate SMA up to current index
+        closes = df['close'].iloc[max(0, index - self.trend_sma_period + 1):index + 1].values
+        sma = self._calculate_sma(closes, self.trend_sma_period)
+        current_price = df.iloc[index]['close']
+        
+        # Create buffer zone around SMA
+        upper_buffer = sma + (self.trend_buffer_pips * self.pip_size)
+        lower_buffer = sma - (self.trend_buffer_pips * self.pip_size)
+        
+        if current_price > upper_buffer:
+            return 'BULLISH'
+        elif current_price < lower_buffer:
+            return 'BEARISH'
+        else:
+            return 'NEUTRAL'
+
+    def _should_create_zone(self, zone_type: str, df: pd.DataFrame, index: int) -> bool:
+        """
+        Determine if a zone should be created based on trend filtering
+        """
+        trend = self._get_trend_direction(df, index)
+        
+        # Only create demand zones in bullish or neutral trends
+        if zone_type == 'demand':
+            return trend in ['BULLISH', 'NEUTRAL']
+        
+        # Only create supply zones in bearish or neutral trends
+        elif zone_type == 'supply':
+            return trend in ['BEARISH', 'NEUTRAL']
+        
+        return False 
