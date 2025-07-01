@@ -4,103 +4,175 @@ from typing import Dict, Any, Optional, List
 
 class EURUSDSupplyDemandStrategy:
     """
-    A Supply and Demand strategy for EUR/USD aiming for a high R:R.
+    Enhanced Supply and Demand strategy for EUR/USD with comprehensive volume analysis.
 
-    Logic:
-    1. Identifies Supply and Demand zones based on strong price moves away from a consolidated base.
-       - Supply: A sharp drop after a base (Rally-Base-Drop or Drop-Base-Drop).
-       - Demand: A sharp rally after a base (Drop-Base-Rally or Rally-Base-Rally).
-    2. Enters a trade when price returns to a 'fresh' (untested) zone.
-    3. The Stop Loss is placed just outside the zone.
-    4. Enforces a strict 1:3 Risk-to-Reward ratio.
+    Features:
+    1. Volume-confirmed supply/demand zones
+    2. Volume spike detection for strong moves
+    3. Volume profile analysis (above/below average)
+    4. Volume divergence detection
+    5. Volume breakout confirmation
+    6. Dynamic volume-weighted zone strength
     """
 
     def __init__(self, target_pair="EUR/USD"):
         self.target_pair = target_pair
         
-        # --- OPTIMIZED STRATEGY PARAMETERS (From AutoTuner Results) ---
-        # Best Result: 54.95% Win Rate, 111 trades, $6,847 PnL
-        self.zone_lookback = 300         # How far back to look for zones (OPTIMIZED: was 200)
-        self.base_max_candles = 5        # Max number of candles in a "base" (OPTIMIZED: unchanged)
-        self.move_min_ratio = 2.0        # How strong the move out of the base must be (OPTIMIZED: unchanged)
-        self.zone_width_max_pips = 30    # Max width of a zone in pips to be considered valid (OPTIMIZED: was 20)
+        # Zone Detection Parameters
+        self.zone_lookback = 300
+        self.base_max_candles = 5
+        self.move_min_ratio = 2.0
+        self.zone_width_max_pips = 30
         self.pip_size = 0.0001
         
-        # --- Internal State ---
-        self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}
+        # Volume Analysis Parameters
+        self.volume_sma_period = 20           # Period for volume moving average
+        self.volume_spike_threshold = 1.5     # Volume must be 1.5x average for spike
+        self.high_volume_threshold = 2.0      # 2x average = high volume
+        self.volume_confirmation_weight = 0.3 # Weight of volume in zone strength
+        self.min_volume_strength = 0.6        # Minimum volume strength for valid zones
+        
+        # Internal State
+        self.zones = []
         self.last_candle_index = -1
+        self.volume_sma = []
 
-    def _is_strong_move(self, candles: pd.DataFrame) -> bool:
-        """Check if the move away from the base is significant."""
-        if len(candles) < 2:
-            return False
+    def _calculate_volume_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate volume-related metrics for the dataframe"""
+        df = df.copy()
         
-        first_candle = candles.iloc[0]
-        last_candle = candles.iloc[-1]
+        # Calculate volume SMA
+        df['volume_sma'] = df['volume'].rolling(window=self.volume_sma_period, min_periods=1).mean()
         
-        move_size = abs(last_candle['close'] - first_candle['open'])
-        avg_body_size = candles['body_size'].mean()
+        # Volume ratio (current volume / average volume)
+        df['volume_ratio'] = df['volume'] / df['volume_sma']
+        
+        # Volume spikes (volume significantly above average)
+        df['volume_spike'] = df['volume_ratio'] >= self.volume_spike_threshold
+        df['high_volume'] = df['volume_ratio'] >= self.high_volume_threshold
+        
+        # Volume trend (increasing/decreasing volume over last 3 candles)
+        df['volume_trend'] = df['volume'].rolling(3).apply(
+            lambda x: 1 if x.iloc[-1] > x.iloc[0] else (-1 if x.iloc[-1] < x.iloc[0] else 0)
+        )
+        
+        # Price-Volume relationship
+        df['price_change'] = df['close'] - df['open']
+        df['price_volume_correlation'] = np.where(
+            (df['price_change'] > 0) & (df['volume_ratio'] > 1.2), 1,  # Bullish with volume
+            np.where((df['price_change'] < 0) & (df['volume_ratio'] > 1.2), -1, 0)  # Bearish with volume
+        )
+        
+        return df
 
-        return move_size > avg_body_size * self.move_min_ratio
+    def _calculate_zone_volume_strength(self, df: pd.DataFrame, base_start: int, base_end: int, impulse_idx: int) -> float:
+        """Calculate volume strength score for a potential zone"""
+        
+        if impulse_idx >= len(df) or base_start < 0:
+            return 0.0
+            
+        base_candles = df.iloc[base_start:base_end]
+        impulse_candle = df.iloc[impulse_idx]
+        
+        # 1. Impulse candle volume strength (40% weight)
+        impulse_volume_score = min(impulse_candle['volume_ratio'] / self.high_volume_threshold, 1.0) * 0.4
+        
+        # 2. Volume spike confirmation (20% weight)
+        volume_spike_score = 0.2 if impulse_candle['volume_spike'] else 0.0
+        
+        # 3. Base volume characteristics (20% weight)
+        base_avg_volume_ratio = base_candles['volume_ratio'].mean()
+        base_volume_score = 0.2 if base_avg_volume_ratio < 1.0 else 0.1  # Prefer low volume bases
+        
+        # 4. Volume trend confirmation (20% weight)
+        if len(base_candles) >= 3:
+            volume_trend_score = 0.2 if impulse_candle['volume_trend'] == 1 else 0.1
+        else:
+            volume_trend_score = 0.1
+            
+        total_score = impulse_volume_score + volume_spike_score + base_volume_score + volume_trend_score
+        return min(total_score, 1.0)
+
+    def _is_strong_move_with_volume(self, base_candles: pd.DataFrame, impulse_candle: pd.Series) -> bool:
+        """Check if the move away from base is strong with volume confirmation"""
+        
+        # Price movement check
+        move_size = abs(impulse_candle['close'] - base_candles['open'].iloc[0])
+        avg_body_size = base_candles['body_size'].mean()
+        price_strength = move_size > avg_body_size * self.move_min_ratio
+        
+        # Volume confirmation check
+        volume_confirmation = impulse_candle['volume_ratio'] >= self.volume_spike_threshold
+        
+        return price_strength and volume_confirmation
 
     def _find_zones(self, df: pd.DataFrame):
-        """Identifies and stores Supply and Demand zones based on explosive moves from a base."""
+        """Enhanced zone finding with volume analysis"""
         self.zones = []
-        df['body_size'] = abs(df['open'] - df['close'])
-        df['candle_range'] = df['high'] - df['low']
+        
+        # Calculate volume metrics
+        df_enhanced = self._calculate_volume_metrics(df)
+        df_enhanced['body_size'] = abs(df_enhanced['open'] - df_enhanced['close'])
+        df_enhanced['candle_range'] = df_enhanced['high'] - df_enhanced['low']
 
-        i = self.base_max_candles
-        while i < len(df) - 1:
-            base_found = False
+        i = max(self.base_max_candles, self.volume_sma_period)
+        while i < len(df_enhanced) - 1:
+            best_zone = None
+            best_volume_strength = 0
+            
             for base_len in range(1, self.base_max_candles + 1):
                 base_start = i - base_len
-                base_candles = df.iloc[base_start:i]
+                base_candles = df_enhanced.iloc[base_start:i]
+                impulse_candle = df_enhanced.iloc[i]
                 
-                # Condition 1: Base candles must have small ranges
-                avg_base_range = base_candles['candle_range'].mean()
+                # Check if it's a strong move with volume
+                if not self._is_strong_move_with_volume(base_candles, impulse_candle):
+                    continue
                 
-                # Condition 2: Find the explosive move candle after the base
-                impulse_candle = df.iloc[i]
+                # Calculate volume strength
+                volume_strength = self._calculate_zone_volume_strength(
+                    df_enhanced, base_start, i, i
+                )
+                
+                if volume_strength < self.min_volume_strength:
+                    continue
+                    
+                base_high = base_candles['high'].max()
+                base_low = base_candles['low'].min()
+                zone_width_pips = (base_high - base_low) / self.pip_size
 
-                # Condition 3: Explosive move must be much larger than base candles
-                if impulse_candle['candle_range'] > avg_base_range * self.move_min_ratio:
-                    base_high = base_candles['high'].max()
-                    base_low = base_candles['low'].min()
-                    zone_width_pips = (base_high - base_low) / self.pip_size
-
-                    if zone_width_pips > 0 and zone_width_pips < self.zone_width_max_pips:
-                        # Explosive move upwards creates a DEMAND zone
-                        if impulse_candle['close'] > base_high:
-                            self.zones.append({
-                                'type': 'demand', 
-                                'price_high': base_high, 
-                                'price_low': base_low,
-                                'created_at': i, 'is_fresh': True
-                            })
-                            base_found = True
-                            break 
-                        
-                        # Explosive move downwards creates a SUPPLY zone
-                        elif impulse_candle['close'] < base_low:
-                            self.zones.append({
-                                'type': 'supply', 
-                                'price_high': base_high, 
-                                'price_low': base_low,
-                                'created_at': i, 'is_fresh': True
-                            })
-                            base_found = True
-                            break
+                if 0 < zone_width_pips < self.zone_width_max_pips:
+                    zone_type = None
+                    if impulse_candle['close'] > base_high:
+                        zone_type = 'demand'
+                    elif impulse_candle['close'] < base_low:
+                        zone_type = 'supply'
+                    
+                    if zone_type and volume_strength > best_volume_strength:
+                        best_volume_strength = volume_strength
+                        best_zone = {
+                            'type': zone_type,
+                            'price_high': base_high,
+                            'price_low': base_low,
+                            'created_at': i,
+                            'is_fresh': True,
+                            'volume_strength': volume_strength,
+                            'impulse_volume_ratio': impulse_candle['volume_ratio'],
+                            'zone_quality': 'high' if volume_strength > 0.8 else 'medium'
+                        }
             
-            if base_found:
-                i += 1 # Move to the next candle after the impulse
+            if best_zone:
+                self.zones.append(best_zone)
+                i += 1
             else:
                 i += 1
         
-        # Remove overlapping zones, keeping the most recent one
+        # Remove overlapping zones, keeping highest volume strength
         if self.zones:
-            self.zones = sorted(self.zones, key=lambda x: x['created_at'], reverse=True)
+            self.zones = sorted(self.zones, key=lambda x: x['volume_strength'], reverse=True)
             unique_zones = []
             seen_ranges = []
+            
             for zone in self.zones:
                 is_overlap = False
                 for seen_high, seen_low in seen_ranges:
@@ -110,117 +182,42 @@ class EURUSDSupplyDemandStrategy:
                 if not is_overlap:
                     unique_zones.append(zone)
                     seen_ranges.append((zone['price_high'], zone['price_low']))
+            
             self.zones = unique_zones
 
-    def find_all_zones(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
-        """
-        Scans the entire DataFrame and identifies all historical Supply and Demand zones.
-        This should be called once at the start of a backtest.
-        """
-        all_zones = []
-        df['body_size'] = abs(df['open'] - df['close'])
-        df['candle_range'] = df['high'] - df['low']
-
-        i = self.base_max_candles
-        while i < len(df) - 1:
-            base_found = False
-            # Look for a base of 1 to base_max_candles
-            for base_len in range(1, self.base_max_candles + 1):
-                base_start = i - base_len
-                base_candles = df.iloc[base_start:i]
-                impulse_candle = df.iloc[i]
-                
-                # Condition 1: Base candles should be relatively small
-                avg_base_range = base_candles['candle_range'].mean()
-                if avg_base_range == 0: continue # Avoid division by zero
-
-                # Condition 2: Impulse candle must be significantly larger than base candles
-                if impulse_candle['candle_range'] > avg_base_range * self.move_min_ratio:
-                    base_high = base_candles['high'].max()
-                    base_low = base_candles['low'].min()
-                    zone_width_pips = (base_high - base_low) / self.pip_size
-
-                    # Condition 3: Zone width must be within a reasonable limit
-                    if 0 < zone_width_pips < self.zone_width_max_pips:
-                        zone_type = None
-                        if impulse_candle['close'] > base_high: # Explosive move up creates Demand
-                            zone_type = 'demand'
-                        elif impulse_candle['close'] < base_low: # Explosive move down creates Supply
-                            zone_type = 'supply'
-                        
-                        if zone_type:
-                            all_zones.append({
-                                'type': zone_type, 
-                                'price_high': base_high, 
-                                'price_low': base_low,
-                                'created_at_index': i,
-                                'is_fresh': True
-                            })
-                            base_found = True
-                            break # Move to the next candle after finding a valid zone from this base
-            
-            if base_found:
-                i += base_len # Skip past the candles that formed the zone
-            else:
-                i += 1
+    def _check_volume_breakout_confirmation(self, df: pd.DataFrame, current_idx: int, zone: Dict[str, Any]) -> Dict[str, Any]:
+        """Check for volume confirmation on zone entry"""
         
-        # Filter out overlapping zones, keeping the one created last (most recent)
-        if not all_zones:
-            return []
-            
-        all_zones = sorted(all_zones, key=lambda x: x['created_at_index'], reverse=True)
-        unique_zones = []
-        seen_ranges = []
-        for zone in all_zones:
-            is_overlap = any(not (zone['price_high'] < seen_low or zone['price_low'] > seen_high) for seen_high, seen_low in seen_ranges)
-            if not is_overlap:
-                unique_zones.append(zone)
-                seen_ranges.append((zone['price_high'], zone['price_low']))
+        if current_idx < self.volume_sma_period:
+            return {'confirmed': False, 'volume_ratio': 0, 'volume_trend': 'neutral'}
         
-        return sorted(unique_zones, key=lambda x: x['created_at_index'])
-
-    def check_entry_signal(self, current_price: float, zone: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        Checks if the current price provides an entry signal for a given fresh zone.
-        This is called on each candle against available zones.
-        """
-        decision = "NO TRADE"
-        sl = 0
-        tp = 0
-
-        in_supply_zone = zone['type'] == 'supply' and zone['price_low'] <= current_price <= zone['price_high']
-        in_demand_zone = zone['type'] == 'demand' and zone['price_low'] <= current_price <= zone['price_high']
-
-        if in_supply_zone:
-            decision = "SELL"
-            sl = zone['price_high'] + (2 * self.pip_size)
-            risk_pips = (sl - current_price) / self.pip_size
-            tp = current_price - (risk_pips * 3 * self.pip_size)
-
-        elif in_demand_zone:
-            decision = "BUY"
-            sl = zone['price_low'] - (2 * self.pip_size)
-            risk_pips = (current_price - sl) / self.pip_size
-            tp = current_price + (risk_pips * 3 * self.pip_size)
-
-        if decision != "NO TRADE":
-            return {
-                "decision": decision,
-                "entry_price": current_price,
-                "stop_loss": sl,
-                "take_profit": tp,
-                "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
-            }
+        df_enhanced = self._calculate_volume_metrics(df)
+        current_candle = df_enhanced.iloc[current_idx]
         
-        return None
+        # Volume breakout confirmation
+        volume_confirmed = current_candle['volume_ratio'] >= self.volume_spike_threshold
+        
+        # Volume trend analysis
+        recent_volume_trend = df_enhanced['volume_trend'].iloc[current_idx-2:current_idx+1].mean()
+        if recent_volume_trend > 0.3:
+            trend_direction = 'increasing'
+        elif recent_volume_trend < -0.3:
+            trend_direction = 'decreasing'
+        else:
+            trend_direction = 'neutral'
+        
+        return {
+            'confirmed': volume_confirmed,
+            'volume_ratio': current_candle['volume_ratio'],
+            'volume_trend': trend_direction,
+            'volume_spike': bool(current_candle['volume_spike'])
+        }
 
     def analyze_trade_signal(self, df: pd.DataFrame, pair: str) -> Dict[str, Any]:
-        """
-        Analyzes the market data for the target pair to find trading opportunities.
-        """
+        """Enhanced trade signal analysis with volume confirmation"""
         current_candle_index = len(df) - 1
         
-        # Only recalculate zones if it's a new candle
+        # Recalculate zones if new candle
         if self.last_candle_index != current_candle_index:
             lookback_df = df.iloc[-self.zone_lookback:].copy()
             self._find_zones(lookback_df)
@@ -233,34 +230,71 @@ class EURUSDSupplyDemandStrategy:
                 continue
 
             # Check for entry
-            in_supply_zone = zone['type'] == 'supply' and current_price >= zone['price_low'] and current_price <= zone['price_high']
-            in_demand_zone = zone['type'] == 'demand' and current_price >= zone['price_low'] and current_price <= zone['price_high']
+            in_supply_zone = (zone['type'] == 'supply' and 
+                            zone['price_low'] <= current_price <= zone['price_high'])
+            in_demand_zone = (zone['type'] == 'demand' and 
+                            zone['price_low'] <= current_price <= zone['price_high'])
             
-            sl = 0
-            tp = 0
-            decision = "NO TRADE"
-            
-            if in_supply_zone:
-                zone['is_fresh'] = False # Mark as tested
-                decision = "SELL"
-                sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
-                sl = zone['price_high'] + (2 * self.pip_size)
-                tp = current_price - (sl_pips * 3 * self.pip_size)
+            if in_supply_zone or in_demand_zone:
+                # Get volume confirmation
+                volume_analysis = self._check_volume_breakout_confirmation(
+                    df, current_candle_index, zone
+                )
                 
-            elif in_demand_zone:
-                zone['is_fresh'] = False # Mark as tested
-                decision = "BUY"
-                sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
-                sl = zone['price_low'] - (2 * self.pip_size)
-                tp = current_price + (sl_pips * 3 * self.pip_size)
+                # Only trade if volume confirms the move
+                if not volume_analysis['confirmed']:
+                    continue
+                
+                zone['is_fresh'] = False  # Mark as tested
+                
+                if in_supply_zone:
+                    decision = "SELL"
+                    sl = zone['price_high'] + (2 * self.pip_size)
+                    risk_pips = (sl - current_price) / self.pip_size
+                    tp = current_price - (risk_pips * 5 * self.pip_size)  # 1:5 R:R
+                else:  # in_demand_zone
+                    decision = "BUY"
+                    sl = zone['price_low'] - (2 * self.pip_size)
+                    risk_pips = (current_price - sl) / self.pip_size
+                    tp = current_price + (risk_pips * 5 * self.pip_size)  # 1:5 R:R
 
-            if decision != "NO TRADE":
+                # Calculate position size based on $30 USD risk
+                risk_amount_usd = 30.0
+                pip_value_usd = 10.0  # For EUR/USD, 1 pip = $10 per lot
+                position_size = risk_amount_usd / (risk_pips * pip_value_usd)
+                adjusted_volume = max(0.01, min(1.0, position_size))  # Min 0.01, Max 1.0 lots
+                
                 return {
                     "decision": decision,
                     "entry_price": current_price,
                     "stop_loss": sl,
                     "take_profit": tp,
-                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
+                    "volume": round(adjusted_volume, 2),
+                    "volume_calculation": f"Risk: ${risk_amount_usd} ÷ ({risk_pips:.1f} pips × ${pip_value_usd}) = {adjusted_volume:.2f} lots",
+                    "meta": {
+                        "zone_type": zone['type'],
+                        "zone_high": zone['price_high'],
+                        "zone_low": zone['price_low'],
+                        "volume_strength": zone['volume_strength'],
+                        "zone_quality": zone['zone_quality'],
+                        "volume_confirmation": volume_analysis,
+                        "confidence_level": "high" if zone['volume_strength'] > 0.8 else "medium"
+                    }
                 }
                 
-        return {"decision": "NO TRADE"} 
+        return {"decision": "NO TRADE"}
+
+    def get_volume_analysis_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """Get comprehensive volume analysis summary"""
+        df_enhanced = self._calculate_volume_metrics(df)
+        
+        recent_data = df_enhanced.tail(20)  # Last 20 candles
+        
+        return {
+            'current_volume_ratio': df_enhanced['volume_ratio'].iloc[-1],
+            'avg_volume_ratio_20': recent_data['volume_ratio'].mean(),
+            'volume_spikes_recent': int(recent_data['volume_spike'].sum()),
+            'volume_trend': 'increasing' if recent_data['volume_trend'].mean() > 0 else 'decreasing',
+            'high_volume_candles': int(recent_data['high_volume'].sum()),
+            'price_volume_correlation': recent_data['price_volume_correlation'].mean()
+        } 
