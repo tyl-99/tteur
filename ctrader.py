@@ -1,33 +1,36 @@
-import datetime,calendar
+# Standard library imports
+import datetime
+import calendar
+import json
+import logging
+import os
+import re
+import sys
+import threading
+import time
+
+# Third-party imports
+import numpy as np
 import pandas as pd
 import requests
-import pandas as pd
-import numpy as np
-import logging
-import json
-import re
-import os
-import time
 from dotenv import load_dotenv
 from twisted.internet import reactor, defer
 from twisted.internet.defer import TimeoutError
+
+# cTrader API imports
 from ctrader_open_api import Client, Protobuf, TcpProtocol, Auth, EndPoints
 from ctrader_open_api.endpoints import EndPoints
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
-from twisted.internet import reactor
-import threading
-import sys
 
-# Import our optimized strategies
+# Strategy imports
 from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
 from strategy.gbpusd_strategy import GBPUSDDemandStrategy
 from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
 from strategy.usdjpy_strategy import USDJPYSupplyDemandStrategy
 from strategy.gbpjpy_strategy import GBPJPYSupplyDemandStrategy
 from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
-
 
 # Forex symbols mapping with IDs
 forex_symbols = {

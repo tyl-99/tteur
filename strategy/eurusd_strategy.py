@@ -186,16 +186,39 @@ class EURUSDSupplyDemandStrategy:
             self.zones = unique_zones
 
     def _check_volume_breakout_confirmation(self, df: pd.DataFrame, current_idx: int, zone: Dict[str, Any]) -> Dict[str, Any]:
-        """Check for volume confirmation on zone entry"""
+        """Check for volume confirmation on zone entry - different logic for BUY vs SELL"""
         
         if current_idx < self.volume_sma_period:
-            return {'confirmed': False, 'volume_ratio': 0, 'volume_trend': 'neutral'}
+            return {'confirmed': False, 'volume_ratio': 0, 'volume_trend': 'neutral', 'direction': 'none'}
         
         df_enhanced = self._calculate_volume_metrics(df)
         current_candle = df_enhanced.iloc[current_idx]
         
-        # Volume breakout confirmation
-        volume_confirmed = current_candle['volume_ratio'] >= self.volume_spike_threshold
+        # Candle direction analysis
+        is_bullish_candle = current_candle['close'] > current_candle['open']
+        is_bearish_candle = current_candle['close'] < current_candle['open']
+        
+        # Base volume requirement
+        volume_above_threshold = current_candle['volume_ratio'] >= self.volume_spike_threshold
+        
+        # Direction-specific volume confirmation
+        if zone['type'] == 'demand':  # BUY trade
+            # Need bullish volume confirmation
+            directional_confirmation = (
+                is_bullish_candle and  # Must be green candle
+                current_candle['price_volume_correlation'] >= 0  # Bullish price-volume
+            )
+            confirmation_type = 'bullish_volume'
+        else:  # zone['type'] == 'supply' - SELL trade
+            # Need bearish volume confirmation  
+            directional_confirmation = (
+                is_bearish_candle and  # Must be red candle
+                current_candle['price_volume_correlation'] <= 0  # Bearish price-volume
+            )
+            confirmation_type = 'bearish_volume'
+        
+        # Final confirmation requires both volume spike AND directional confirmation
+        volume_confirmed = volume_above_threshold and directional_confirmation
         
         # Volume trend analysis
         recent_volume_trend = df_enhanced['volume_trend'].iloc[current_idx-2:current_idx+1].mean()
@@ -210,7 +233,11 @@ class EURUSDSupplyDemandStrategy:
             'confirmed': volume_confirmed,
             'volume_ratio': current_candle['volume_ratio'],
             'volume_trend': trend_direction,
-            'volume_spike': bool(current_candle['volume_spike'])
+            'volume_spike': bool(current_candle['volume_spike']),
+            'candle_direction': 'bullish' if is_bullish_candle else 'bearish',
+            'directional_confirmation': directional_confirmation,
+            'confirmation_type': confirmation_type,
+            'price_volume_correlation': current_candle['price_volume_correlation']
         }
 
     def analyze_trade_signal(self, df: pd.DataFrame, pair: str) -> Dict[str, Any]:
