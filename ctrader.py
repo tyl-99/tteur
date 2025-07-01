@@ -25,7 +25,7 @@ from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
 from strategy.gbpusd_strategy import GBPUSDDemandStrategy
 from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
 from strategy.usdjpy_strategy import USDJPYSupplyDemandStrategy
-from strategy.gbpjpy_strategy import GBPJPYStrategy
+from strategy.gbpjpy_strategy import GBPJPYSupplyDemandStrategy
 from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
 
 
@@ -125,7 +125,7 @@ class Trader:
             "GBP/USD": GBPUSDDemandStrategy(),
             "EUR/GBP": EURGBPSupplyDemandStrategy(),
             "USD/JPY": USDJPYSupplyDemandStrategy(),
-            "GBP/JPY": GBPJPYStrategy(),
+            "GBP/JPY": GBPJPYSupplyDemandStrategy(),
             "EUR/JPY": EURJPYSupplyDemandStrategy()
         }
 
