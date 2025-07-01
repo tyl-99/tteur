@@ -161,7 +161,7 @@ class Trader:
         time.sleep(1)
         
         # Retry the trendbar request
-        self.sendTrendbarReq(weeks=4, period="M30", symbolId=self.current_pair)
+        self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
 
     def reset_api_retry_state(self):
         """Reset API retry tracking"""
@@ -482,12 +482,12 @@ class Trader:
                 
             #     # Remove duplicates based on timestamp and sort
             #     self.trendbar = self.trendbar.drop_duplicates(subset=['timestamp'], keep='first')
-            #     self.trendbar = self.trendbar.head(300)
+            #     self.trendbar = self.trendbar.head(500)
             
             # if not self.latest_data:
             #     self.latest_data = True
             #     # Add delay before next request for M1 data
-            #     reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=4, period="M1", symbolId=self.current_pair))
+            #     reactor.callLater(self.request_delay, lambda: self.sendTrendbarReq(weeks=6, period="M1", symbolId=self.current_pair))
             #     return
             
             # Print last rows of trendbar data before sorting (for debugging)
@@ -890,7 +890,7 @@ class Trader:
             else:
                 self.current_pair = pair_name
             
-                self.sendTrendbarReq(weeks=4, period="M30", symbolId=pair_name)
+                self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
                 #self.getActivePosition()
                 #self.get_symbol_list()
 
