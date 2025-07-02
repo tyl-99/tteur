@@ -28,8 +28,8 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
 from strategy.gbpusd_strategy import GBPUSDDemandStrategy
 from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
-from strategy.usdjpy_strategy import USDJPYSupplyDemandStrategy
-from strategy.gbpjpy_strategy import GBPJPYSupplyDemandStrategy
+from strategy.usdjpy_strategy import USDJPYStrategy
+from strategy.gbpjpy_strategy import GBPJPYStrategy
 from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
 
 # Forex symbols mapping with IDs
@@ -127,8 +127,8 @@ class Trader:
             "EUR/USD": EURUSDSupplyDemandStrategy(),
             "GBP/USD": GBPUSDDemandStrategy(),
             "EUR/GBP": EURGBPSupplyDemandStrategy(),
-            "USD/JPY": USDJPYSupplyDemandStrategy(),
-            "GBP/JPY": GBPJPYSupplyDemandStrategy(),
+            "USD/JPY": USDJPYStrategy(),
+            "GBP/JPY": GBPJPYStrategy(),
             "EUR/JPY": EURJPYSupplyDemandStrategy()
         }
 
