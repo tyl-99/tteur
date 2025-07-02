@@ -194,6 +194,94 @@ class GBPUSDDemandStrategy:
             
             self.zones = unique_zones
 
+    def _find_technical_take_profit(self, df: pd.DataFrame, current_price: float, trade_direction: str, current_idx: int) -> Dict[str, Any]:
+        """Find technically sound take profit levels based on market structure"""
+        
+        # Look back at significant highs and lows
+        lookback_period = min(200, len(df) - 50)  # Look back up to 200 candles
+        historical_data = df.iloc[current_idx-lookback_period:current_idx]
+        
+        if len(historical_data) < 50:
+            # Fallback to simple calculation if not enough data
+            fallback_pips = 60 if trade_direction == "BUY" else -60  # Slightly wider for GBP volatility
+            return {
+                'tp_price': current_price + (fallback_pips * self.pip_size),
+                'tp_pips': abs(fallback_pips),
+                'tp_reason': 'Insufficient data - fallback TP',
+                'confidence': 'low'
+            }
+        
+        # Find significant swing points (local highs/lows)
+        swing_highs = []
+        swing_lows = []
+        
+        # Simple swing point detection (look for peaks and valleys)
+        for i in range(10, len(historical_data) - 10):
+            candle = historical_data.iloc[i]
+            
+            # Check for swing high (higher than surrounding candles)
+            if (candle['high'] > historical_data.iloc[i-5:i+5]['high'].max() * 0.999 and
+                candle['high'] > current_price):
+                swing_highs.append({
+                    'price': candle['high'],
+                    'distance_pips': abs(candle['high'] - current_price) / self.pip_size,
+                    'index': i
+                })
+            
+            # Check for swing low (lower than surrounding candles)
+            if (candle['low'] < historical_data.iloc[i-5:i+5]['low'].min() * 1.001 and
+                candle['low'] < current_price):
+                swing_lows.append({
+                    'price': candle['low'],
+                    'distance_pips': abs(candle['low'] - current_price) / self.pip_size,
+                    'index': i
+                })
+        
+        # Sort by distance from current price
+        swing_highs.sort(key=lambda x: x['distance_pips'])
+        swing_lows.sort(key=lambda x: x['distance_pips'])
+        
+        if trade_direction == "BUY":
+            # For BUY trades, target nearest significant resistance (swing high) - NO distance limit
+            targets = [h for h in swing_highs if h['price'] > current_price]
+            if targets:
+                target = targets[0]  # Closest significant high
+                return {
+                    'tp_price': target['price'] - (3 * self.pip_size),  # Place slightly below resistance
+                    'tp_pips': (target['price'] - current_price) / self.pip_size - 3,
+                    'tp_reason': f'Previous swing high at {target["price"]:.5f}',
+                    'confidence': 'high'
+                }
+        else:  # SELL trades
+            # For SELL trades, target nearest significant support (swing low) - NO distance limit
+            targets = [l for l in swing_lows if l['price'] < current_price]
+            if targets:
+                target = targets[0]  # Closest significant low
+                return {
+                    'tp_price': target['price'] + (3 * self.pip_size),  # Place slightly above support
+                    'tp_pips': (current_price - target['price']) / self.pip_size - 3,
+                    'tp_reason': f'Previous swing low at {target["price"]:.5f}',
+                    'confidence': 'high'
+                }
+        
+        # Fallback: Use ATR-based target if no swing points found
+        recent_data = historical_data.tail(20)
+        atr = (recent_data['high'] - recent_data['low']).mean()
+        atr_pips = atr / self.pip_size
+        target_pips = max(20, min(100, atr_pips * 2))  # 2x ATR, capped between 20-100 pips for GBP
+        
+        if trade_direction == "BUY":
+            tp_price = current_price + (target_pips * self.pip_size)
+        else:
+            tp_price = current_price - (target_pips * self.pip_size)
+            
+        return {
+            'tp_price': tp_price,
+            'tp_pips': target_pips,
+            'tp_reason': f'ATR-based target ({atr_pips:.1f} pips ATR)',
+            'confidence': 'medium'
+        }
+
     def _check_volume_breakout_confirmation(self, df: pd.DataFrame, current_idx: int, zone: Dict[str, Any]) -> Dict[str, Any]:
         """Check for volume confirmation on zone entry - different logic for BUY vs SELL"""
         
@@ -284,16 +372,50 @@ class GBPUSDDemandStrategy:
                 
                 zone['is_fresh'] = False  # Mark as tested
                 
+                # Step 1: Determine trade direction
                 if in_supply_zone:
-                    decision = "SELL"
-                    sl = zone['price_high'] + (2 * self.pip_size)
-                    risk_pips = (sl - current_price) / self.pip_size
-                    tp = current_price - (risk_pips * 5 * self.pip_size)  # 1:5 R:R
+                    decision = "SELL" 
                 else:  # in_demand_zone
                     decision = "BUY"
-                    sl = zone['price_low'] - (2 * self.pip_size)
+                
+                # Step 2: Find technical TP level first
+                tp_analysis = self._find_technical_take_profit(df, current_price, decision, current_candle_index)
+                tp = tp_analysis['tp_price']
+                potential_reward_pips = tp_analysis['tp_pips']
+                
+                # Step 3: Calculate SL to achieve 1:5 R:R (or best possible)
+                zone_quality_multiplier = 0.5 if zone['volume_strength'] > 0.8 else 0.8 if zone['volume_strength'] > 0.6 else 1.0
+                min_sl_buffer = 2 * self.pip_size * zone_quality_multiplier  # Minimum buffer beyond zone
+                
+                # Calculate what SL would give us 1:5 R:R
+                target_risk_pips = potential_reward_pips / 5  # Target 1:5 R:R
+                
+                if decision == "SELL":
+                    # Zone invalidation level (absolute maximum SL)
+                    max_sl = zone['price_high'] + min_sl_buffer
+                    # Ideal SL for 1:5 R:R
+                    ideal_sl = current_price + (target_risk_pips * self.pip_size)
+                    # Use the tighter (better) of the two
+                    sl = min(ideal_sl, max_sl)
+                else:  # BUY
+                    # Zone invalidation level (absolute maximum SL)
+                    max_sl = zone['price_low'] - min_sl_buffer
+                    # Ideal SL for 1:5 R:R
+                    ideal_sl = current_price - (target_risk_pips * self.pip_size)
+                    # Use the tighter (better) of the two
+                    sl = max(ideal_sl, max_sl)
+                
+                # Calculate actual risk and reward
+                if decision == "SELL":
+                    risk_pips = (sl - current_price) / self.pip_size
+                    reward_pips = (current_price - tp) / self.pip_size
+                else:  # BUY
                     risk_pips = (current_price - sl) / self.pip_size
-                    tp = current_price + (risk_pips * 5 * self.pip_size)  # 1:5 R:R
+                    reward_pips = (tp - current_price) / self.pip_size
+                
+                # Skip trade if R:R is impossibly poor (less than 1:1)
+                if reward_pips <= 0 or risk_pips <= 0 or reward_pips / risk_pips < 1.0:
+                    continue
 
                 # Calculate position size based on volume strength (conservative for GBP)
                 base_volume = 0.13  # Slightly smaller for GBP volatility
@@ -315,7 +437,15 @@ class GBPUSDDemandStrategy:
                         "zone_quality": zone['zone_quality'],
                         "volume_confirmation": volume_analysis,
                         "confidence_level": "high" if zone['volume_strength'] > 0.8 else "medium",
-                        "gbp_volume_strength": zone.get('gbp_volume_strength', 'medium')
+                        "gbp_volume_strength": zone.get('gbp_volume_strength', 'medium'),
+                        "tp_analysis": tp_analysis,
+                        "risk_pips": round(risk_pips, 1),
+                        "reward_pips": round(reward_pips, 1),
+                        "risk_reward_ratio": f"1:{reward_pips/risk_pips:.1f}",
+                        "target_rr": "1:5",
+                        "achieved_rr": f"1:{reward_pips/risk_pips:.1f}",
+                        "sl_type": "1:5 R:R target" if sl == (current_price + target_risk_pips * self.pip_size if decision == "SELL" else current_price - target_risk_pips * self.pip_size) else "Zone constraint",
+                        "zone_quality_multiplier": zone_quality_multiplier
                     }
                 }
                 
