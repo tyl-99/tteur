@@ -629,7 +629,7 @@ class Trader:
                 risk_pips = risk_distance / pip_size
                 
                 # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 5 pips
-                if risk_pips < 5.0:
+                if risk_pips < 11.5:
                     logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 5 pips minimum")
                     print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 5 pips")
                     self.move_to_next_pair()
