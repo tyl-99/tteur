@@ -253,7 +253,13 @@ class Trader:
             order.symbolId = symbol_id
             order.volume = int(self.pending_order["volume"])*100
 
-            order.orderType = ProtoOAOrderType.MARKET
+            order.orderType = ProtoOAOrderType.LIMIT
+            
+            # Set the exact entry price as limit price
+            if 'JPY' in self.current_pair:
+                order.limitPrice = round(float(self.pending_order["entry_price"]), 3)
+            else:
+                order.limitPrice = round(float(self.pending_order["entry_price"]), 5)
             if(self.pending_order["decision"] == "BUY"):
                 order.tradeSide = ProtoOATradeSide.BUY
             elif(self.pending_order["decision"] =="SELL"):
