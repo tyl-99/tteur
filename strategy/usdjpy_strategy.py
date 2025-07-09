@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List
 
-class USDJPYStrategy:
+class USDJPYSTRATEGY:
     """
     A Supply and Demand strategy for USD/JPY aiming for a high R:R.
 

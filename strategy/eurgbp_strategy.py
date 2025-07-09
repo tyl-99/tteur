@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List
 
-class EURGBPSupplyDemandStrategy:
+class EURGBPSTRATEGY:
     """
     A Supply and Demand strategy for EUR/GBP aiming for a high R:R.
 
