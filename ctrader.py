@@ -25,12 +25,12 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 
 # Strategy imports
-from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
-from strategy.gbpusd_strategy import GBPUSDDemandStrategy
-from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
-from strategy.usdjpy_strategy import USDJPYStrategy
-from strategy.gbpjpy_strategy import GBPJPYStrategy
-from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
+from strategy.eurusd_strategy import EURUSDSTRATEGY
+from strategy.gbpusd_strategy import GBPUSDSTRATEGY
+from strategy.eurgbp_strategy import EURGBPSTRATEGY
+from strategy.usdjpy_strategy import USDJPYSTRATEGY
+from strategy.gbpjpy_strategy import GBPJPYSTRATEGY
+from strategy.eurjpy_strategy import EURJPYSTRATEGY
 
 # Forex symbols mapping with IDs
 forex_symbols = {
@@ -124,12 +124,12 @@ class Trader:
 
         # Initialize strategy instances for each pair
         self.strategies = {
-            "EUR/USD": EURUSDSupplyDemandStrategy(),
-            "GBP/USD": GBPUSDDemandStrategy(),
-            "EUR/GBP": EURGBPSupplyDemandStrategy(),
-            "USD/JPY": USDJPYStrategy(),
-            "GBP/JPY": GBPJPYStrategy(),
-            "EUR/JPY": EURJPYSupplyDemandStrategy()
+            "EUR/USD": EURUSDSTRATEGY(),
+            "GBP/USD": GBPUSDSTRATEGY(),
+            "EUR/GBP": EURGBPSTRATEGY(),
+            "USD/JPY": USDJPYSTRATEGY(),
+            "GBP/JPY": GBPJPYSTRATEGY(),
+            "EUR/JPY": EURJPYSTRATEGY()
         }
 
         self.connect()
@@ -246,13 +246,14 @@ class Trader:
         symbol_id = forex_symbols.get(self.pending_order["symbol"])
         
         if symbol_id is not None:
-            print(f"Placing market order for {self.pending_order['symbol']}")
+            print(f"Placing limit order for {self.pending_order['symbol']} at {self.pending_order['entry_price']}")
 
             order = ProtoOANewOrderReq()
             order.ctidTraderAccountId = self.account_id
             order.symbolId = symbol_id
             order.volume = int(self.pending_order["volume"])*100
 
+            # Change to LIMIT order instead of MARKET
             order.orderType = ProtoOAOrderType.LIMIT
             
             # Set the exact entry price as limit price
@@ -260,11 +261,22 @@ class Trader:
                 order.limitPrice = round(float(self.pending_order["entry_price"]), 3)
             else:
                 order.limitPrice = round(float(self.pending_order["entry_price"]), 5)
+            
             if(self.pending_order["decision"] == "BUY"):
                 order.tradeSide = ProtoOATradeSide.BUY
             elif(self.pending_order["decision"] =="SELL"):
                 order.tradeSide = ProtoOATradeSide.SELL
-            print(f"Placing {order.tradeSide} order for symbol {order.symbolId} with volume {order.volume}")
+            
+            # Set stop loss and take profit directly in the order request
+            if 'JPY' in self.current_pair:
+                order.stopLoss = round(float(self.pending_order["stop_loss"]), 3)
+                order.takeProfit = round(float(self.pending_order["take_profit"]), 3)
+            else:
+                order.stopLoss = round(float(self.pending_order["stop_loss"]), 5)
+                order.takeProfit = round(float(self.pending_order["take_profit"]), 5)
+            
+            print(f"Placing {order.tradeSide} LIMIT order for symbol {order.symbolId} with volume {order.volume} at price {order.limitPrice}")
+            print(f"Stop Loss: {order.stopLoss}, Take Profit: {order.takeProfit}")
 
             deferred = self.client.send(order)
             # Add timeout to order request
@@ -274,7 +286,7 @@ class Trader:
             print(f"{self.pending_order['symbol']} symbol not found in the dictionary!")
 
     def onOrderSent(self, response):
-        print("Market order sent successfully!")
+        print("Limit order sent successfully!")
         message = Protobuf.extract(response)
         print(message)
         
@@ -282,6 +294,12 @@ class Trader:
         if hasattr(message, 'errorCode') and message.errorCode:
             description = getattr(message, 'description', 'No description available')
             print(f"❌ Order failed: {message.errorCode} - {description}")
+            
+            # Check for TRADING_BAD_STOPS error during order creation
+            if message.errorCode == "TRADING_BAD_STOPS":
+                print(f"🚨 TRADING_BAD_STOPS detected for {self.current_pair} during order creation!")
+                logger.warning(f"TRADING_BAD_STOPS error for {self.current_pair} during order creation")
+            
             self.move_to_next_pair()
             return
         
@@ -293,10 +311,13 @@ class Trader:
             self.current_position_id = position_id
             self.current_position_volume = position_volume
             
-            print(f"✅ Position created - ID: {position_id}, Volume: {position_volume}")
+            print(f"✅ Position created with SL/TP - ID: {position_id}, Volume: {position_volume}")
+            print(f"✅ Stop Loss: {self.pending_order['stop_loss']}, Take Profit: {self.pending_order['take_profit']}")
             
-            # Don't send notification here - wait until SL/TP is successfully set
-            self.amend_sl_tp(position_id, self.pending_order["stop_loss"], self.pending_order["take_profit"])
+            # Send notification immediately since SL/TP are already set
+            self.send_pushover_notification()
+            self.reset_retry_state()
+            self.move_to_next_pair()
         else:
             print("❌ No position created in response")
             self.move_to_next_pair()
@@ -613,10 +634,11 @@ class Trader:
             signal = strategy.analyze_trade_signal(self.trendbar, self.current_pair)
             
             logger.info(f"\n=== Strategy Decision for {self.current_pair} ===")
-            logger.info(f"Decision: {signal.get('decision')}")
+            logger.info(f"Decision: {signal.get('decision') or signal.get('action')}")
             
-            if signal.get("decision") == "NO TRADE":
-                logger.info(f"No trade signal for {self.current_pair}")
+            # Check for both 'decision' and 'action' keys to handle different response formats
+            if signal.get("decision") == "NO TRADE" or signal.get("action") == "HOLD" or signal.get("action") == "NONE":
+                logger.info(f"No trade signal for {self.current_pair}: {signal.get('reason', 'No reason provided')}")
                 self.move_to_next_pair()
             else:
                 # CENTRALIZED R:R FILTER - Check R:R ratio before executing trade
@@ -635,11 +657,11 @@ class Trader:
                 risk_pips = risk_distance / pip_size
                 
                 # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 5 pips
-                if risk_pips < 11.5:
-                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 5 pips minimum")
-                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 5 pips")
-                    self.move_to_next_pair()
-                    return
+                # if risk_pips < 10:
+                #     logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 10 pips minimum")
+                #     print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 10 pips")
+                #     self.move_to_next_pair()
+                #     return
                 
                 if rr_ratio < self.min_rr_ratio:
                     reward_pips = reward_distance / pip_size  # Calculate for logging only
@@ -722,7 +744,7 @@ class Trader:
         potential_win = reward_pips * pip_value * volume_lots
         
         return {
-            "decision": signal['decision'],
+            "decision": signal.get('decision', signal.get('action', 'UNKNOWN')),
             "entry_price": entry_price,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
@@ -881,6 +903,106 @@ class Trader:
     def is_symbol_active(self, symbol_id):
         return any(pos["symbolId"] == symbol_id for pos in self.active_positions)
 
+    def get_deals_from_current_week(self):
+        """Get all deals from the current week before starting trendbar collection"""
+        try:
+            # Calculate current week's start and end timestamps
+            now = datetime.datetime.now()
+            start_of_week = now - datetime.timedelta(days=now.weekday())  # Current week
+            start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_week = start_of_week + datetime.timedelta(days=7)
+            
+            # Convert to Unix timestamps
+            from_timestamp = int(start_of_week.timestamp() * 1000)  # Convert to milliseconds
+            to_timestamp = int(end_of_week.timestamp() * 1000)
+            
+            print(f"📊 Fetching deals from current week: {start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')}")
+            
+            # Create ProtoOADealListReq
+            deal_req = ProtoOADealListReq()
+            deal_req.ctidTraderAccountId = self.account_id
+            deal_req.fromTimestamp = from_timestamp
+            deal_req.toTimestamp = to_timestamp
+            deal_req.maxRows = 1000  # Get up to 1000 deals
+            
+            # Send the request
+            deferred = self.client.send(deal_req)
+            deferred.addCallbacks(self.onDealsReceived, self.onError)
+            
+        except Exception as e:
+            logger.error(f"Error creating deal request: {str(e)}")
+            # Continue with trendbar collection even if deal request fails
+            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+
+    def onDealsReceived(self, response):
+        """Handle the response from ProtoOADealListRes"""
+        try:
+            parsed = Protobuf.extract(response)
+            
+            print(f"\n📈 DEALS FROM CURRENT WEEK:")
+            print("=" * 80)
+            
+            if hasattr(parsed, 'deal') and parsed.deal:
+                total_volume = 0
+                total_profit = 0
+                buy_trades = 0
+                sell_trades = 0
+                
+                for deal in parsed.deal:
+                    # Convert timestamp from milliseconds to datetime
+                    deal_time = datetime.datetime.fromtimestamp(deal.executionTimestamp / 1000)
+                    
+                    # Get symbol name from symbol ID
+                    symbol_name = "Unknown"
+                    for symbol_id, name in forex_symbols.items():
+                        if name == deal.tradeData.symbolId:
+                            symbol_name = symbol_id
+                            break
+                    
+                    # Determine trade side
+                    side = "BUY" if deal.tradeData.tradeSide == 1 else "SELL"
+                    
+                    # Calculate profit/loss
+                    profit = deal.executionPrice * deal.tradeData.volume / 100000  # Convert to proper units
+                    
+                    # Format the deal information
+                    print(f"🕐 {deal_time.strftime('%Y-%m-%d %H:%M:%S')} | "
+                          f"💱 {symbol_name} | "
+                          f"📊 {side} | "
+                          f"💰 Volume: {deal.tradeData.volume/100000:.2f} lots | "
+                          f"💵 Price: ${deal.executionPrice:.5f} | "
+                          f"📈 P/L: ${profit:.2f}")
+                    
+                    # Update totals
+                    total_volume += deal.tradeData.volume
+                    total_profit += profit
+                    if side == "BUY":
+                        buy_trades += 1
+                    else:
+                        sell_trades += 1
+                
+                print("=" * 80)
+                print(f"📊 SUMMARY:")
+                print(f"Total Deals: {len(parsed.deal)}")
+                print(f"Buy Trades: {buy_trades}")
+                print(f"Sell Trades: {sell_trades}")
+                print(f"Total Volume: {total_volume/100000:.2f} lots")
+                print(f"Total P/L: ${total_profit:.2f}")
+                print("=" * 80)
+                
+            else:
+                print("📭 No deals found for the current week.")
+            
+            print(f"\n🚀 Starting trendbar data collection for {self.current_pair}...")
+            
+            # Continue with trendbar collection
+            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+            
+        except Exception as e:
+            logger.error(f"Error processing deals response: {str(e)}")
+            # Continue with trendbar collection even if deal processing fails
+            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+
     def run_trading_cycle(self, pair):
     
         try:
@@ -900,8 +1022,10 @@ class Trader:
                 self.current_pair = pair_name
             
                 self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
-                #self.getActivePosition()
-                #self.get_symbol_list()
+                # # Get deals from current week before starting trendbar collection
+                # self.get_deals_from_current_week()
+                # #self.getActivePosition()
+                # #self.get_symbol_list()
 
         except Exception as e:
             logger.error(f"Error processing {pair_name}: {str(e)}")
