@@ -124,12 +124,12 @@ class Trader:
 
         # Initialize strategy instances for each pair
         self.strategies = {
-            "EUR/USD": EURUSDSupplyDemandStrategy(),
-            "GBP/USD": GBPUSDDemandStrategy(),
-            "EUR/GBP": EURGBPSupplyDemandStrategy(),
-            "USD/JPY": USDJPYStrategy(),
-            "GBP/JPY": GBPJPYStrategy(),
-            "EUR/JPY": EURJPYSupplyDemandStrategy()
+            "EUR/USD": EURUSDSTRATEGY(),
+            "GBP/USD": GBPUSDSTRATEGY(),
+            "EUR/GBP": EURGBPSTRATEGY(),
+            "USD/JPY": USDJPYSTRATEGY(),
+            "GBP/JPY": GBPJPYSTRATEGY(),
+            "EUR/JPY": EURJPYSTRATEGY()
         }
 
         self.connect()
