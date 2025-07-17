@@ -664,12 +664,12 @@ class Trader:
                 pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
                 risk_pips = risk_distance / pip_size
                 
-                # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 5 pips
-                # if risk_pips < 10:
-                #     logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 10 pips minimum")
-                #     print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 10 pips")
-                #     self.move_to_next_pair()
-                #     return
+                # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 10 pips
+                if risk_pips < 8:
+                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 10 pips minimum")
+                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 10 pips")
+                    self.move_to_next_pair()
+                    return
                 
                 if rr_ratio < self.min_rr_ratio:
                     reward_pips = reward_distance / pip_size  # Calculate for logging only
@@ -679,7 +679,7 @@ class Trader:
                     self.move_to_next_pair()
                     return
                 
-                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ 5 pips")
+                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ 10 pips")
                 logger.info(f"✅ R:R Check PASSED: {rr_ratio:.2f} ≥ {self.min_rr_ratio}")
                 
                 # Convert our strategy signal to the format expected by sendOrderReq
