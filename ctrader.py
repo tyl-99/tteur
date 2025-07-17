@@ -323,7 +323,8 @@ class Trader:
             print(f"✅ Stop Loss: {self.pending_order['stop_loss']}, Take Profit: {self.pending_order['take_profit']}")
             
             # Send notification immediately since SL/TP are already set
-            self.send_pushover_notification()
+            if os.getenv("sendNotification") == "true":
+                self.send_pushover_notification()
             self.reset_retry_state()
             self.move_to_next_pair()
         else:
@@ -442,7 +443,8 @@ class Trader:
         else:
             print("✅ Amend SL/TP sent successfully!")
             # Send notification only after successful SL/TP setting
-            self.send_pushover_notification()
+            if os.getenv("sendNotification") == "true":
+                self.send_pushover_notification()
             self.reset_retry_state()
         
         self.move_to_next_pair()
