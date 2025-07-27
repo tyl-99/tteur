@@ -173,6 +173,17 @@ class Trader:
         """Reset API retry tracking"""
         self.api_retry_count = 0
 
+    def get_minimum_pips_for_pair(self, pair_name):
+        """Get minimum stop loss pips requirement for each currency pair"""
+        if pair_name == "USD/JPY":
+            return 12
+        elif pair_name == "EUR/JPY":
+            return 14
+        elif pair_name == "GBP/JPY":
+            return 16
+        else:
+            return 10  # Default for all other pairs
+
     def connected(self, client):
         print("Connected to server.")
         self.authenticate_app()
@@ -666,10 +677,13 @@ class Trader:
                 pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
                 risk_pips = risk_distance / pip_size
                 
-                # MINIMUM STOP LOSS FILTER - Check if stop loss is at least 10 pips
-                if risk_pips < 8:
-                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < 10 pips minimum")
-                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: 10 pips")
+                # Get minimum pips requirement for this pair
+                min_pips = self.get_minimum_pips_for_pair(self.current_pair)
+                
+                # MINIMUM STOP LOSS FILTER - Check if stop loss meets minimum pip requirement
+                if risk_pips < min_pips:
+                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < {min_pips} pips minimum")
+                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: {min_pips} pips")
                     self.move_to_next_pair()
                     return
                 
@@ -681,7 +695,7 @@ class Trader:
                     self.move_to_next_pair()
                     return
                 
-                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ 10 pips")
+                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ {min_pips} pips")
                 logger.info(f"✅ R:R Check PASSED: {rr_ratio:.2f} ≥ {self.min_rr_ratio}")
                 
                 # Convert our strategy signal to the format expected by sendOrderReq
