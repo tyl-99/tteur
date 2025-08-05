@@ -176,11 +176,11 @@ class Trader:
     def get_minimum_pips_for_pair(self, pair_name):
         """Get minimum stop loss pips requirement for each currency pair"""
         if pair_name == "USD/JPY":
-            return 12
+            return 20
         elif pair_name == "EUR/JPY":
-            return 14
+            return 20
         elif pair_name == "GBP/JPY":
-            return 16
+            return 20
         else:
             return 10  # Default for all other pairs
 
@@ -979,8 +979,8 @@ class Trader:
                         
                         # Only include deals with actual profit/loss (not $0.00)
                         if gross_profit != 0:
-                            # Convert timestamp from milliseconds to datetime
-                            deal_time = datetime.datetime.fromtimestamp(deal.executionTimestamp / 1000)
+                            # Convert timestamp from milliseconds to UTC datetime for consistency
+                            deal_time = datetime.datetime.utcfromtimestamp(deal.executionTimestamp / 1000)
                             
                             # Get symbol name from symbol ID
                             symbol_name = "Unknown"
@@ -1033,29 +1033,54 @@ class Trader:
         """Check if there's a loss trade in the last 12 hours for the given pair"""
         try:
             if not hasattr(self, 'closed_deals_list') or not self.closed_deals_list:
+                logger.info(f"🔍 {pair_name}: No closed deals list available")
                 return False  # No deals to check
             
-            # Get current time
-            now = datetime.datetime.now()
-            # Calculate 12 hours ago
+            # Use UTC time for consistency with cTrader server
+            now = datetime.datetime.utcnow()
             twelve_hours_ago = now - datetime.timedelta(hours=12)
+            
+            logger.info(f"🔍 {pair_name}: Checking for loss trades between {twelve_hours_ago.strftime('%Y-%m-%d %H:%M:%S')} UTC and {now.strftime('%Y-%m-%d %H:%M:%S')} UTC")
             
             # Get symbol ID for the pair
             symbol_id = forex_symbols.get(pair_name)
             if symbol_id is None:
+                logger.warning(f"🔍 {pair_name}: Symbol ID not found in forex_symbols")
                 return False  # Pair not found
+            
+            # Track deals for this pair for debugging
+            pair_deals = []
+            loss_deals = []
+            recent_loss_deals = []
             
             # Check for loss trades in the last 12 hours
             for deal in self.closed_deals_list:
-                # Check if deal is for this pair and within last 12 hours
-                if (deal['symbol_id'] == symbol_id and 
-                    deal['timestamp'] >= twelve_hours_ago and 
-                    deal['gross_profit'] < 0):
+                # Track all deals for this pair
+                if deal['symbol_id'] == symbol_id:
+                    pair_deals.append(deal)
                     
-                    print(f"🚫 {pair_name} has a loss trade in the last 12 hours!")
-                    print(f"   Loss: ${deal['gross_profit']:.2f} at {deal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}")
-                    return True
+                    # Track loss deals for this pair
+                    if deal['gross_profit'] < 0:
+                        loss_deals.append(deal)
+                        
+                        # Check if within 12 hours (convert deal timestamp to UTC for comparison)
+                        if deal['timestamp'] >= twelve_hours_ago:
+                            recent_loss_deals.append(deal)
+                            
+                            print(f"🚫 {pair_name} has a loss trade in the last 12 hours!")
+                            print(f"   Loss: ${deal['gross_profit']:.2f} at {deal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                            print(f"   Time difference: {(now - deal['timestamp']).total_seconds() / 3600:.2f} hours ago")
+                            logger.info(f"12-hour check BLOCKED {pair_name}: Loss ${deal['gross_profit']:.2f} at {deal['timestamp']}")
+                            return True
             
+            # Enhanced logging for debugging
+            logger.info(f"🔍 {pair_name}: Found {len(pair_deals)} total deals, {len(loss_deals)} loss deals, {len(recent_loss_deals)} recent loss deals")
+            
+            if pair_deals:
+                latest_deal = max(pair_deals, key=lambda x: x['timestamp'])
+                logger.info(f"🔍 {pair_name}: Latest deal was {(now - latest_deal['timestamp']).total_seconds() / 3600:.2f} hours ago (${latest_deal['gross_profit']:.2f})")
+            
+            logger.info(f"✅ {pair_name}: 12-hour check PASSED - No recent loss trades")
             return False
             
         except Exception as e:
