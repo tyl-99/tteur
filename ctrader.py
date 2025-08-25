@@ -176,13 +176,13 @@ class Trader:
     def get_minimum_pips_for_pair(self, pair_name):
         """Get minimum stop loss pips requirement for each currency pair"""
         if pair_name == "USD/JPY":
-            return 20
+            return 10
         elif pair_name == "EUR/JPY":
-            return 20
+            return 10
         elif pair_name == "GBP/JPY":
-            return 20
+            return 10
         else:
-            return 10  # Default for all other pairs
+            return 7  # Default for all other pairs
 
     def connected(self, client):
         print("Connected to server.")

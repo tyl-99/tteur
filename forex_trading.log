@@ -92,3 +92,88 @@
 2025-06-30 10:21:55,759 - __main__ - INFO - Processing EUR/USD
 2025-06-30 10:22:27,731 - __main__ - INFO - Processing EUR/USD
 2025-06-30 10:23:22,987 - __main__ - INFO - Processing EUR/USD
+2025-08-16 07:40:53,517 - __main__ - INFO - Processing EUR/USD
+2025-08-16 07:40:54,499 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-16 07:40:55,511 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/USD: trendbar
+2025-08-16 07:40:57,524 - __main__ - INFO - Processing GBP/USD
+2025-08-16 07:40:58,507 - __main__ - INFO - 🔍 GBP/USD: No closed deals list available
+2025-08-16 07:40:59,513 - __main__ - ERROR - ❌ Error processing trendbar data for GBP/USD: trendbar
+2025-08-16 07:41:01,526 - __main__ - INFO - Processing USD/JPY
+2025-08-16 07:41:02,514 - __main__ - INFO - 🔍 USD/JPY: No closed deals list available
+2025-08-16 07:41:03,507 - __main__ - ERROR - ❌ Error processing trendbar data for USD/JPY: trendbar
+2025-08-16 07:41:05,521 - __main__ - INFO - Processing EUR/JPY
+2025-08-16 07:41:06,496 - __main__ - INFO - 🔍 EUR/JPY: No closed deals list available
+2025-08-16 07:41:07,497 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/JPY: trendbar
+2025-08-16 07:41:09,508 - __main__ - INFO - Processing EUR/GBP
+2025-08-16 07:41:10,498 - __main__ - INFO - 🔍 EUR/GBP: No closed deals list available
+2025-08-16 07:41:11,496 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/GBP: trendbar
+2025-08-16 07:41:13,500 - __main__ - INFO - Processing GBP/JPY
+2025-08-16 07:41:14,510 - __main__ - INFO - 🔍 GBP/JPY: No closed deals list available
+2025-08-16 07:41:15,503 - __main__ - ERROR - ❌ Error processing trendbar data for GBP/JPY: trendbar
+2025-08-16 07:48:08,376 - __main__ - INFO - Processing EUR/USD
+2025-08-16 07:48:09,371 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-16 07:48:10,372 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/USD: trendbar
+2025-08-16 07:48:12,383 - __main__ - INFO - Processing GBP/USD
+2025-08-16 07:48:13,369 - __main__ - INFO - 🔍 GBP/USD: No closed deals list available
+2025-08-16 07:48:14,362 - __main__ - ERROR - ❌ Error processing trendbar data for GBP/USD: trendbar
+2025-08-16 07:48:16,367 - __main__ - INFO - Processing USD/JPY
+2025-08-16 07:48:17,367 - __main__ - INFO - 🔍 USD/JPY: No closed deals list available
+2025-08-16 07:48:18,382 - __main__ - ERROR - ❌ Error processing trendbar data for USD/JPY: trendbar
+2025-08-16 07:48:20,387 - __main__ - INFO - Processing EUR/JPY
+2025-08-16 07:48:21,367 - __main__ - INFO - 🔍 EUR/JPY: No closed deals list available
+2025-08-16 07:48:22,368 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/JPY: trendbar
+2025-08-16 07:48:24,381 - __main__ - INFO - Processing EUR/GBP
+2025-08-16 07:48:25,373 - __main__ - INFO - 🔍 EUR/GBP: No closed deals list available
+2025-08-16 07:48:26,378 - __main__ - ERROR - ❌ Error processing trendbar data for EUR/GBP: trendbar
+2025-08-16 07:48:28,388 - __main__ - INFO - Processing GBP/JPY
+2025-08-16 07:48:29,377 - __main__ - INFO - 🔍 GBP/JPY: No closed deals list available
+2025-08-16 07:48:30,379 - __main__ - ERROR - ❌ Error processing trendbar data for GBP/JPY: trendbar
+2025-08-16 07:54:37,654 - __main__ - INFO - Processing EUR/USD
+2025-08-16 07:54:38,651 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-16 07:54:39,649 - __main__ - WARNING - ⚠️ No trendbar data received for EUR/USD
+2025-08-16 08:12:18,360 - __main__ - INFO - Processing EUR/USD
+2025-08-16 08:12:19,353 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-16 08:12:20,365 - __main__ - WARNING - ⚠️ No trendbar data received for EUR/USD
+2025-08-17 15:01:34,161 - __main__ - INFO - Processing EUR/USD
+2025-08-17 15:01:36,147 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-17 15:01:37,158 - __main__ - ERROR - ❌ API Error in trendbar request for EUR/USD:
+2025-08-17 15:01:37,159 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:37,159 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:37,160 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:01:39,175 - __main__ - INFO - Processing GBP/USD
+2025-08-17 15:01:40,160 - __main__ - INFO - 🔍 GBP/USD: No closed deals list available
+2025-08-17 15:01:41,155 - __main__ - ERROR - ❌ API Error in trendbar request for GBP/USD:
+2025-08-17 15:01:41,157 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:41,158 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:41,160 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:01:43,169 - __main__ - INFO - Processing USD/JPY
+2025-08-17 15:01:44,150 - __main__ - INFO - 🔍 USD/JPY: No closed deals list available
+2025-08-17 15:01:45,170 - __main__ - ERROR - ❌ API Error in trendbar request for USD/JPY:
+2025-08-17 15:01:45,171 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:45,171 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:45,171 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:01:47,174 - __main__ - INFO - Processing EUR/JPY
+2025-08-17 15:01:48,156 - __main__ - INFO - 🔍 EUR/JPY: No closed deals list available
+2025-08-17 15:01:49,154 - __main__ - ERROR - ❌ API Error in trendbar request for EUR/JPY:
+2025-08-17 15:01:49,173 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:49,174 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:49,174 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:01:51,183 - __main__ - INFO - Processing EUR/GBP
+2025-08-17 15:01:52,170 - __main__ - INFO - 🔍 EUR/GBP: No closed deals list available
+2025-08-17 15:01:53,179 - __main__ - ERROR - ❌ API Error in trendbar request for EUR/GBP:
+2025-08-17 15:01:53,180 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:53,181 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:53,184 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:01:55,196 - __main__ - INFO - Processing GBP/JPY
+2025-08-17 15:01:56,150 - __main__ - INFO - 🔍 GBP/JPY: No closed deals list available
+2025-08-17 15:01:57,161 - __main__ - ERROR - ❌ API Error in trendbar request for GBP/JPY:
+2025-08-17 15:01:57,164 - __main__ - ERROR -    Error Code: INVALID_REQUEST
+2025-08-17 15:01:57,165 - __main__ - ERROR -    Description: Trading account is not authorized
+2025-08-17 15:01:57,169 - __main__ - ERROR -    Account ID: 43573119
+2025-08-17 15:04:21,019 - __main__ - INFO - Processing EUR/USD
+2025-08-17 15:04:23,025 - __main__ - INFO - 🔍 EUR/USD: No closed deals list available
+2025-08-17 15:06:35,561 - __main__ - INFO - Processing EUR/USD
+2025-08-17 15:06:36,565 - __main__ - INFO - 🔍 EUR/USD: Checking for loss trades between 2025-08-17 07:06:36 UTC and 2025-08-17 19:06:36 UTC
+2025-08-17 15:06:36,566 - __main__ - INFO - 🔍 EUR/USD: Found 1 total deals, 0 loss deals, 0 recent loss deals
+2025-08-17 15:06:36,566 - __main__ - INFO - 🔍 EUR/USD: Latest deal was 78.61 hours ago ($15008.00)
+2025-08-17 15:06:36,566 - __main__ - INFO - ✅ EUR/USD: 12-hour check PASSED - No recent loss trades

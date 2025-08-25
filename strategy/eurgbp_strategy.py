@@ -25,6 +25,9 @@ class EURGBPSTRATEGY:
         self.zone_width_max_pips = 30    # Max width of a zone in pips to be considered valid (OPTIMIZED: was 20)
         self.pip_size = 0.0001
         
+        # --- CANDLE DIRECTION FILTER ---
+        self.use_candle_direction_filter = True  # Enable 1-candle direction filter
+        
         # --- Internal State ---
         self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}
         self.last_candle_index = -1
@@ -41,6 +44,28 @@ class EURGBPSTRATEGY:
         avg_body_size = candles['body_size'].mean()
 
         return move_size > avg_body_size * self.move_min_ratio
+
+    def _check_candle_direction_filter(self, df: pd.DataFrame, trade_direction: str) -> bool:
+        """
+        Check if the last candle supports the trade direction.
+        Returns True if direction matches or filter is disabled.
+        """
+        if not self.use_candle_direction_filter:
+            return True
+        
+        if len(df) < 1:
+            return False
+        
+        last_candle = df.iloc[-1]
+        is_bullish_candle = last_candle['close'] > last_candle['open']
+        is_bearish_candle = last_candle['close'] < last_candle['open']
+        
+        if trade_direction == "BUY":
+            return is_bullish_candle
+        elif trade_direction == "SELL":
+            return is_bearish_candle
+        
+        return False
 
     def _find_zones(self, df: pd.DataFrame):
         """Identifies and stores Supply and Demand zones based on explosive moves from a base."""
@@ -240,15 +265,23 @@ class EURGBPSTRATEGY:
             decision = "NO TRADE"
             
             if in_supply_zone:
-                zone['is_fresh'] = False # Mark as tested
                 decision = "SELL"
+                # Check candle direction filter before proceeding
+                if not self._check_candle_direction_filter(df, decision):
+                    continue  # Skip this zone if candle direction doesn't match
+                
+                zone['is_fresh'] = False # Mark as tested
                 sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
                 sl = zone['price_high'] + (2 * self.pip_size)
                 tp = current_price - (sl_pips * 3 * self.pip_size)
                 
             elif in_demand_zone:
-                zone['is_fresh'] = False # Mark as tested
                 decision = "BUY"
+                # Check candle direction filter before proceeding
+                if not self._check_candle_direction_filter(df, decision):
+                    continue  # Skip this zone if candle direction doesn't match
+                
+                zone['is_fresh'] = False # Mark as tested
                 sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
                 sl = zone['price_low'] - (2 * self.pip_size)
                 tp = current_price + (sl_pips * 3 * self.pip_size)
@@ -259,7 +292,7 @@ class EURGBPSTRATEGY:
                     "entry_price": current_price,
                     "stop_loss": sl,
                     "take_profit": tp,
-                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low']}
+                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "candle_filter": "1-candle direction filter applied"}
                 }
                 
         return {"decision": "NO TRADE"} 
