@@ -25,8 +25,9 @@ class USDJPYSTRATEGY:
         self.zone_width_max_pips = 100   # Max width of a zone in pips - increased for JPY pairs
         self.pip_size = 0.01
         
-        # --- CANDLE DIRECTION FILTER ---
-        self.use_candle_direction_filter = True  # Enable 1-candle direction filter
+        # --- LONG WICK FILTER ---
+        self.use_wick_filter = True  # Enable long wick filter (50% of candle height)
+        self.min_wick_percentage = 0.5  # Minimum wick size as percentage of total candle height
         
         # --- Internal State ---
         self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}
@@ -45,25 +46,40 @@ class USDJPYSTRATEGY:
 
         return move_size > avg_body_size * self.move_min_ratio
 
-    def _check_candle_direction_filter(self, df: pd.DataFrame, trade_direction: str) -> bool:
+    def _check_wick_filter(self, df: pd.DataFrame, trade_direction: str) -> bool:
         """
-        Check if the last candle supports the trade direction.
-        Returns True if direction matches or filter is disabled.
+        Check if the last candle has a long wick in the trade direction.
+        BUY: requires long bottom wick (rejection of lower prices)
+        SELL: requires long top wick (rejection of higher prices)
         """
-        if not self.use_candle_direction_filter:
+        if not self.use_wick_filter:
             return True
         
         if len(df) < 1:
             return False
         
         last_candle = df.iloc[-1]
-        is_bullish_candle = last_candle['close'] > last_candle['open']
-        is_bearish_candle = last_candle['close'] < last_candle['open']
+        high = last_candle['high']
+        low = last_candle['low']
+        open_price = last_candle['open']
+        close = last_candle['close']
+        
+        total_height = high - low
+        if total_height == 0:  # Avoid division by zero
+            return False
+        
+        # Calculate wicks
+        top_wick = high - max(open_price, close)
+        bottom_wick = min(open_price, close) - low
         
         if trade_direction == "BUY":
-            return is_bullish_candle
+            # For BUY signals, need long bottom wick (rejection of lower prices)
+            bottom_wick_percentage = bottom_wick / total_height
+            return bottom_wick_percentage >= self.min_wick_percentage
         elif trade_direction == "SELL":
-            return is_bearish_candle
+            # For SELL signals, need long top wick (rejection of higher prices)
+            top_wick_percentage = top_wick / total_height
+            return top_wick_percentage >= self.min_wick_percentage
         
         return False
 
@@ -266,9 +282,9 @@ class USDJPYSTRATEGY:
             
             if in_supply_zone:
                 decision = "SELL"
-                # Check candle direction filter before proceeding
-                if not self._check_candle_direction_filter(df, decision):
-                    continue  # Skip this zone if candle direction doesn't match
+                # Check long wick filter before proceeding
+                if not self._check_wick_filter(df, decision):
+                    continue  # Skip this zone if no long top wick
                 
                 zone['is_fresh'] = False # Mark as tested
                 sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
@@ -277,9 +293,9 @@ class USDJPYSTRATEGY:
                 
             elif in_demand_zone:
                 decision = "BUY"
-                # Check candle direction filter before proceeding
-                if not self._check_candle_direction_filter(df, decision):
-                    continue  # Skip this zone if candle direction doesn't match
+                # Check long wick filter before proceeding
+                if not self._check_wick_filter(df, decision):
+                    continue  # Skip this zone if no long bottom wick
                 
                 zone['is_fresh'] = False # Mark as tested
                 sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
@@ -292,7 +308,7 @@ class USDJPYSTRATEGY:
                     "entry_price": current_price,
                     "stop_loss": sl,
                     "take_profit": tp,
-                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "candle_filter": "1-candle direction filter applied"}
+                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "wick_filter": "Long wick filter applied (50% min)"}
                 }
                 
         return {"decision": "NO TRADE"} 
