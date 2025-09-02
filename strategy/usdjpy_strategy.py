@@ -29,6 +29,15 @@ class USDJPYSTRATEGY:
         self.use_wick_filter = True  # Enable long wick filter (50% of candle height)
         self.min_wick_percentage = 0.5  # Minimum wick size as percentage of total candle height
         
+        # --- NEW: TREND, ATR AND SESSION FILTERS ---
+        self.rr_target = 2.0
+        self.buffer_pct = 0.15
+        self.atr_period = 14
+        self.atr_min_mult = 0.5
+        self.atr_max_mult = 1.5
+        self.use_session_filter = True
+        self.session_hours_utc = set(range(7, 21))
+        
         # --- Internal State ---
         self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}
         self.last_candle_index = -1
@@ -82,6 +91,65 @@ class USDJPYSTRATEGY:
             return top_wick_percentage >= self.min_wick_percentage
         
         return False
+
+    def _compute_atr(self, df: pd.DataFrame, period: int) -> float:
+        try:
+            high = df['high']
+            low = df['low']
+            close = df['close']
+            prev_close = close.shift(1)
+            tr1 = (high - low).abs()
+            tr2 = (high - prev_close).abs()
+            tr3 = (low - prev_close).abs()
+            tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+            atr = tr.ewm(alpha=1/period, adjust=False).mean()
+            return float(atr.iloc[-1]) if len(atr) > 0 and pd.notna(atr.iloc[-1]) else None
+        except Exception:
+            return None
+
+    def _ema(self, series: pd.Series, period: int) -> pd.Series:
+        return series.ewm(span=period, adjust=False).mean()
+
+    def _compute_h4_trend(self, df: pd.DataFrame) -> str:
+        try:
+            ts = pd.to_datetime(df['timestamp'], errors='coerce') if 'timestamp' in df.columns else None
+            if ts is not None and ts.notna().all():
+                tmp = df.copy()
+                tmp['timestamp'] = ts
+                tmp = tmp.sort_values('timestamp')
+                tmp = tmp.set_index('timestamp')
+                h4_close = tmp['close'].resample('4H').last().dropna()
+                if len(h4_close) >= 210:
+                    ema200 = self._ema(h4_close, 200)
+                    last_close = float(h4_close.iloc[-1])
+                    last_ema = float(ema200.iloc[-1])
+                    if last_close > last_ema:
+                        return 'up'
+                    elif last_close < last_ema:
+                        return 'down'
+            if len(df) >= 210:
+                ema200_m30 = self._ema(df['close'], 200)
+                last_close = float(df['close'].iloc[-1])
+                last_ema = float(ema200_m30.iloc[-1])
+                if last_close > last_ema:
+                    return 'up'
+                elif last_close < last_ema:
+                    return 'down'
+        except Exception:
+            pass
+        return 'unknown'
+
+    def _in_session(self, df: pd.DataFrame) -> bool:
+        if not self.use_session_filter:
+            return True
+        try:
+            ts = df['timestamp'].iloc[-1]
+            dt = pd.to_datetime(ts, errors='coerce')
+            if pd.isna(dt):
+                return True
+            return dt.hour in self.session_hours_utc
+        except Exception:
+            return True
 
     def _find_zones(self, df: pd.DataFrame):
         """Identifies and stores Supply and Demand zones based on explosive moves from a base."""
@@ -260,55 +328,71 @@ class USDJPYSTRATEGY:
         """
         current_candle_index = len(df) - 1
         
-        # Only recalculate zones if it's a new candle
         if self.last_candle_index != current_candle_index:
             lookback_df = df.iloc[-self.zone_lookback:].copy()
             self._find_zones(lookback_df)
             self.last_candle_index = current_candle_index
 
+        # Session gate
+        if not self._in_session(df):
+            return {"decision": "NO TRADE", "reason": "Out of session"}
+
         current_price = df['close'].iloc[-1]
-        
+        trend = self._compute_h4_trend(df)
+
+        atr_value = self._compute_atr(df.iloc[-max(self.atr_period*3, 100):].copy(), self.atr_period)
+        atr_pips = (atr_value / self.pip_size) if atr_value else None
+
         for zone in self.zones:
             if not zone['is_fresh']:
                 continue
 
-            # Check for entry
-            in_supply_zone = zone['type'] == 'supply' and current_price >= zone['price_low'] and current_price <= zone['price_high']
-            in_demand_zone = zone['type'] == 'demand' and current_price >= zone['price_low'] and current_price <= zone['price_high']
-            
-            sl = 0
-            tp = 0
-            decision = "NO TRADE"
-            
-            if in_supply_zone:
-                decision = "SELL"
-                # Check long wick filter before proceeding
-                if not self._check_wick_filter(df, decision):
-                    continue  # Skip this zone if no long top wick
-                
-                zone['is_fresh'] = False # Mark as tested
-                sl_pips = (zone['price_high'] - current_price) / self.pip_size + 2 # SL 2 pips above zone high
-                sl = zone['price_high'] + (2 * self.pip_size)
-                tp = current_price - (sl_pips * 3 * self.pip_size)
-                
-            elif in_demand_zone:
-                decision = "BUY"
-                # Check long wick filter before proceeding
-                if not self._check_wick_filter(df, decision):
-                    continue  # Skip this zone if no long bottom wick
-                
-                zone['is_fresh'] = False # Mark as tested
-                sl_pips = (current_price - zone['price_low']) / self.pip_size + 2 # SL 2 pips below zone low
-                sl = zone['price_low'] - (2 * self.pip_size)
-                tp = current_price + (sl_pips * 3 * self.pip_size)
+            in_supply_zone = zone['type'] == 'supply' and zone['price_low'] <= current_price <= zone['price_high']
+            in_demand_zone = zone['type'] == 'demand' and zone['price_low'] <= current_price <= zone['price_high']
 
-            if decision != "NO TRADE":
+            if zone['type'] == 'demand' and trend == 'down':
+                continue
+            if zone['type'] == 'supply' and trend == 'up':
+                continue
+
+            if zone['type'] == 'demand':
+                if not self._check_wick_filter(df, "BUY"):
+                    continue
+                zone_width = zone['price_high'] - zone['price_low']
+                entry_price = zone['price_low'] + zone_width * self.buffer_pct
+                sl = zone['price_low'] - (2 * self.pip_size)
+                risk_pips = (entry_price - sl) / self.pip_size
+                if atr_pips is not None:
+                    if risk_pips < self.atr_min_mult * atr_pips or risk_pips > self.atr_max_mult * atr_pips:
+                        continue
+                tp = entry_price + (risk_pips * self.rr_target * self.pip_size)
+                zone['is_fresh'] = False
                 return {
-                    "decision": decision,
-                    "entry_price": current_price,
-                    "stop_loss": sl,
-                    "take_profit": tp,
-                    "meta": { "zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "wick_filter": "Long wick filter applied (50% min)"}
+                    "decision": "BUY",
+                    "entry_price": float(entry_price),
+                    "stop_loss": float(sl),
+                    "take_profit": float(tp),
+                    "meta": {"zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "trend": trend, "wick_filter": "on", "atr": atr_value}
                 }
-                
-        return {"decision": "NO TRADE"} 
+
+            if zone['type'] == 'supply':
+                if not self._check_wick_filter(df, "SELL"):
+                    continue
+                zone_width = zone['price_high'] - zone['price_low']
+                entry_price = zone['price_high'] - zone_width * self.buffer_pct
+                sl = zone['price_high'] + (2 * self.pip_size)
+                risk_pips = (sl - entry_price) / self.pip_size
+                if atr_pips is not None:
+                    if risk_pips < self.atr_min_mult * atr_pips or risk_pips > self.atr_max_mult * atr_pips:
+                        continue
+                tp = entry_price - (risk_pips * self.rr_target * self.pip_size)
+                zone['is_fresh'] = False
+                return {
+                    "decision": "SELL",
+                    "entry_price": float(entry_price),
+                    "stop_loss": float(sl),
+                    "take_profit": float(tp),
+                    "meta": {"zone_type": zone['type'], "zone_high": zone['price_high'], "zone_low": zone['price_low'], "trend": trend, "wick_filter": "on", "atr": atr_value}
+                }
+
+        return {"decision": "NO TRADE", "reason": "No qualified zone"}

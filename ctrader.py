@@ -114,8 +114,8 @@ class Trader:
         self.api_timeout = 15  # seconds
         self.request_delay = 2  # seconds between requests
         
-        # Risk management - minimum R:R ratio filter
-        self.min_rr_ratio = 2.5  # Centralized minimum R:R requirement
+        # Risk management - minimum R:R ratio filter (aligned with strategy default)
+        self.min_rr_ratio = 2.0  # Centralized minimum R:R requirement
         
         # Track current position ID for closing if needed
         self.current_position_id = None
@@ -173,16 +173,6 @@ class Trader:
         """Reset API retry tracking"""
         self.api_retry_count = 0
 
-    def get_minimum_pips_for_pair(self, pair_name):
-        """Get minimum stop loss pips requirement for each currency pair"""
-        if pair_name == "USD/JPY":
-            return 10
-        elif pair_name == "EUR/JPY":
-            return 10
-        elif pair_name == "GBP/JPY":
-            return 10
-        else:
-            return 7  # Default for all other pairs
 
     def connected(self, client):
         print("Connected to server.")
@@ -517,11 +507,12 @@ class Trader:
                 })
             
             df = pd.DataFrame(data)
+            # Keep timestamp as datetime for strategy filters (trend/session)
             df.sort_values('timestamp', inplace=True, ascending=False)
             
             if self.trendbar.empty:
                 # First call - store M30 data as base
-                df['timestamp'] = df['timestamp'].astype(str)
+                # Keep as datetime; strategy will handle conversion if needed
                 self.trendbar = df
             # else:
             #     # Second call - aggregate M1 data into proper 30-minute candles
@@ -673,19 +664,9 @@ class Trader:
                 
                 rr_ratio = reward_distance / risk_distance if risk_distance > 0 else 0
                 
-                # Still need pip calculations for minimum stop loss check
+                # Pip calculations for logging and sizing only (min-pips gate removed)
                 pip_size = 0.01 if 'JPY' in self.current_pair else 0.0001
                 risk_pips = risk_distance / pip_size
-                
-                # Get minimum pips requirement for this pair
-                min_pips = self.get_minimum_pips_for_pair(self.current_pair)
-                
-                # MINIMUM STOP LOSS FILTER - Check if stop loss meets minimum pip requirement
-                if risk_pips < min_pips:
-                    logger.info(f"❌ Trade REJECTED for {self.current_pair}: Stop loss {risk_pips:.1f} pips < {min_pips} pips minimum")
-                    print(f"⚠️ {self.current_pair}: Stop loss {risk_pips:.1f} pips too tight, minimum required: {min_pips} pips")
-                    self.move_to_next_pair()
-                    return
                 
                 if rr_ratio < self.min_rr_ratio:
                     reward_pips = reward_distance / pip_size  # Calculate for logging only
@@ -695,7 +676,7 @@ class Trader:
                     self.move_to_next_pair()
                     return
                 
-                logger.info(f"✅ Stop Loss Check PASSED: {risk_pips:.1f} pips ≥ {min_pips} pips")
+                logger.info(f"ℹ️ Stop Loss distance: {risk_pips:.1f} pips (ATR/minDistance handled in strategy)")
                 logger.info(f"✅ R:R Check PASSED: {rr_ratio:.2f} ≥ {self.min_rr_ratio}")
                 
                 # Convert our strategy signal to the format expected by sendOrderReq
@@ -1013,12 +994,6 @@ class Trader:
                 print("📭 No deals found for the current week.")
                 self.closed_deals_list = []
             
-            # Check for recent loss trade after deals are loaded
-            if self.check_recent_loss_trade(self.current_pair):
-                print(f"⏭️ Skipping {self.current_pair} due to recent loss trade")
-                self.move_to_next_pair()
-                return
-            
             print(f"\n🚀 Starting trendbar data collection for {self.current_pair}...")
             
             # Continue with trendbar collection
@@ -1105,9 +1080,8 @@ class Trader:
             else:
                 self.current_pair = pair_name
             
-                #self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
-                # # Get deals from current week before starting trendbar collection
-                self.get_deals_from_current_week()
+                # Directly request trendbars for decision-making (remove loss cooldown gating)
+                self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
                 # #self.getActivePosition()
                 # #self.get_symbol_list()
 

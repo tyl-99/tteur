@@ -1,14 +1,10 @@
 __pycache__/
+
 *.pyc
 .env
 .env.local
 .env.production
 claudeAPIKey.txt
-/web
-
-# Firebase credentials (sensitive data)
-my-trader-9e446-firebase-adminsdk-fbsvc-*.json
-*.json
-
-# Helper scripts that may contain sensitive data
-extract_firebase_env.py
+/web_app
+/backtest
+/public

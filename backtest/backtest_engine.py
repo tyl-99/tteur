@@ -14,12 +14,12 @@ from core.trade_models import Trade
 import warnings
 
 # 🎯 DYNAMIC STRATEGY IMPORTS - ONE LINE PER IMPORT
-from strategy.eurusd_strategy import EURUSDSupplyDemandStrategy
-from strategy.gbpusd_strategy import GBPUSDDemandStrategy
-from strategy.usdjpy_strategy import USDJPYStrategy
-from strategy.eurgbp_strategy import EURGBPSupplyDemandStrategy
-from strategy.gbpjpy_strategy import GBPJPYStrategy
-from strategy.eurjpy_strategy import EURJPYSupplyDemandStrategy
+from strategy.eurusd_strategy import EURUSDSTRATEGY
+from strategy.gbpusd_strategy import GBPUSDSTRATEGY
+from strategy.usdjpy_strategy import USDJPYSTRATEGY
+from strategy.eurgbp_strategy import EURGBPSTRATEGY
+from strategy.gbpjpy_strategy import GBPJPYSTRATEGY
+from strategy.eurjpy_strategy import EURJPYSTRATEGY
 # from strategy.audusd_strategy import AUDUSDStrategy
 # from strategy.usdcad_strategy import USDCADStrategy
 # from strategy.nzdusd_strategy import NZDUSDStrategy
@@ -70,12 +70,12 @@ class BacktestEngine:
         """
         # Create strategy mapping dictionary
         strategy_mapping = {
-            "EUR/USD": EURUSDSupplyDemandStrategy,
-            "GBP/USD": GBPUSDDemandStrategy,
-            "USD/JPY": USDJPYStrategy,
-            "EUR/GBP": EURGBPSupplyDemandStrategy,
-            "GBP/JPY": GBPJPYStrategy,
-            "EUR/JPY": EURJPYSupplyDemandStrategy,
+            "EUR/USD": EURUSDSTRATEGY,
+            "GBP/USD": GBPUSDSTRATEGY,
+            "USD/JPY": USDJPYSTRATEGY,
+            "EUR/GBP": EURGBPSTRATEGY,
+            "GBP/JPY": GBPJPYSTRATEGY,
+            "EUR/JPY": EURJPYSTRATEGY,
             # "AUD/USD": AUDUSDStrategy,
             # "USD/CAD": USDCADStrategy,
             # "NZD/USD": NZDUSDStrategy,
@@ -213,14 +213,14 @@ class {class_name}Strategy:
     
     def collect_comprehensive_candle_data(self, trade, full_df, entry_index, exit_index):
         """
-        Collect comprehensive candle data from entry-50 candles until exit
-        🕯️ COMPLETE PRICE ACTION HISTORY
+        Collect comprehensive candle data and a focused slice of up to 500 post-entry candles
+        🕯️ COMPLETE PRICE ACTION HISTORY + 500-candle post-entry window
         """
         try:
             trade_id = len(self.trades)
             
-            # Calculate range: 50 candles before entry until exit
-            start_index = max(0, entry_index - 50)
+            # Calculate full range: 500 candles before entry until exit
+            start_index = max(0, entry_index - 500)
             end_index = min(len(full_df) - 1, exit_index)
             
             # Extract all candles in range
@@ -266,6 +266,15 @@ class {class_name}Strategy:
             candle_range['bearish'] = candle_range['close'] < candle_range['open']
             candle_range['doji'] = abs(candle_range['close'] - candle_range['open']) < (candle_range['total_range'] * 0.1)
             
+            # Build a focused slice: up to 500 candles after entry (or until exit)
+            post_entry_start = entry_index + 1
+            post_entry_end = min(entry_index + 500, exit_index)
+            post_entry_range = full_df.iloc[post_entry_start:post_entry_end + 1].copy()
+            post_entry_range.reset_index(drop=True, inplace=True)
+
+            # Add relative indexing for post-entry window
+            post_entry_range['candle_index_from_entry'] = range(1, len(post_entry_range) + 1)
+
             # Store comprehensive trade candle data
             trade_candle_info = {
                 'trade_id': trade_id,
@@ -286,7 +295,8 @@ class {class_name}Strategy:
                 'in_trade_candles': exit_relative_index - entry_relative_index,
                 'entry_index_in_data': entry_index,
                 'exit_index_in_data': exit_index,
-                'candle_data': candle_range.to_dict('records')  # All candle data as list of dicts
+                'candle_data': candle_range.to_dict('records'),  # All candles in full range
+                'post_entry_candles_500': post_entry_range.to_dict('records')  # Up to 500
             }
             
             # Store in trade_candle_data dictionary
@@ -306,6 +316,7 @@ class {class_name}Strategy:
         1. Pickle for Python processing
         2. Excel for manual analysis
         3. JSON for other applications
+        4. JSONL and Parquet (if available) for ML/LLM workflows (post-entry 500)
         """
         try:
             if not self.trade_candle_data:
@@ -369,6 +380,79 @@ class {class_name}Strategy:
                 json.dump(json_data, f, indent=2, default=str)
             
             logger.info(f"🕯️ Candle data saved to JSON: {json_candle_path}")
+
+            # 4. Save as JSONL for ML/LLM and Parquet if pyarrow installed
+            jsonl_path = self.candle_data_path.replace('.pkl', '_post_entry_500.jsonl')
+            try:
+                with open(jsonl_path, 'w', encoding='utf-8') as jf:
+                    for trade_id, trade_info in self.trade_candle_data.items():
+                        base = {
+                            'trade_id': trade_id,
+                            'pair': trade_info['pair'],
+                            'direction': trade_info['direction'],
+                            'entry_time': trade_info['entry_time'].isoformat() if trade_info['entry_time'] else None,
+                            'exit_time': trade_info['exit_time'].isoformat() if trade_info['exit_time'] else None,
+                            'entry_price': trade_info['entry_price'],
+                            'exit_price': trade_info['exit_price'],
+                            'stop_loss': trade_info['stop_loss'],
+                            'take_profit': trade_info['take_profit'],
+                            'usd_pnl': trade_info['usd_pnl'],
+                            'pips_gained': trade_info['pips_gained']
+                        }
+                        for row in trade_info.get('post_entry_candles_500', []):
+                            record = {**base, **row}
+                            jf.write(json.dumps(record, default=str) + "\n")
+                logger.info(f"🧾 JSONL saved: {jsonl_path}")
+            except Exception as e:
+                logger.error(f"❌ Error saving JSONL: {e}")
+
+            # Parquet (optional)
+            try:
+                import pandas as pd  # already imported
+                import pyarrow as pa  # type: ignore
+                import pyarrow.parquet as pq  # type: ignore
+                parquet_path = self.candle_data_path.replace('.pkl', '_post_entry_500.parquet')
+                rows = []
+                for trade_id, trade_info in self.trade_candle_data.items():
+                    base = {
+                        'trade_id': trade_id,
+                        'pair': trade_info['pair'],
+                        'direction': trade_info['direction'],
+                        'entry_time': trade_info['entry_time'],
+                        'exit_time': trade_info['exit_time'],
+                        'entry_price': trade_info['entry_price'],
+                        'exit_price': trade_info['exit_price'],
+                        'stop_loss': trade_info['stop_loss'],
+                        'take_profit': trade_info['take_profit'],
+                        'usd_pnl': trade_info['usd_pnl'],
+                        'pips_gained': trade_info['pips_gained']
+                    }
+                    for row in trade_info.get('post_entry_candles_500', []):
+                        rows.append({**base, **row})
+                if rows:
+                    df_parquet = pd.DataFrame(rows)
+                    table = pa.Table.from_pandas(df_parquet)
+                    pq.write_table(table, parquet_path)
+                    logger.info(f"🧾 Parquet saved: {parquet_path}")
+            except Exception as e:
+                logger.warning(f"⚠️ Parquet export skipped: {e}")
+
+            # 5. Optional: copy artifacts to web_app/public/data for dashboard
+            try:
+                from pathlib import Path
+                web_data_dir = Path('web_app/public/data')
+                if web_data_dir.exists():
+                    import shutil
+                    shutil.copy2(json_candle_path, web_data_dir / Path(json_candle_path).name)
+                    shutil.copy2(self.candle_data_path, web_data_dir / Path(self.candle_data_path).name)
+                    if os.path.exists(jsonl_path):
+                        shutil.copy2(jsonl_path, web_data_dir / Path(jsonl_path).name)
+                    parquet_path_opt = self.candle_data_path.replace('.pkl', '_post_entry_500.parquet')
+                    if os.path.exists(parquet_path_opt):
+                        shutil.copy2(parquet_path_opt, web_data_dir / Path(parquet_path_opt).name)
+                    logger.info(f"🌐 Copied artifacts to {web_data_dir}")
+            except Exception as e:
+                logger.warning(f"⚠️ Copy to web_app/public/data skipped: {e}")
             
             # 4. Create a quick access method file
             method_file_path = self.candle_data_path.replace('.pkl', '_access_methods.py')
@@ -438,6 +522,7 @@ def get_losing_trades():
             print(f"   🐍 Pickle file (Python): {self.candle_data_path}")
             print(f"   📊 Excel file (Analysis): {excel_candle_path}")
             print(f"   🌐 JSON file (Universal): {json_candle_path}")
+            print(f"   🧾 JSONL (ML/LLM): {jsonl_path}")
             print(f"   🔧 Access methods: {method_file_path}")
             
         except Exception as e:
