@@ -103,6 +103,9 @@ class Trader:
 
         self.active_order = []
         
+        # Add pending orders tracking
+        self.pending_orders = []  # Store pending limit orders
+        
         # Add retry tracking
         self.retry_count = 0
         self.max_retries = 1  # Only retry once with volume/2
@@ -266,10 +269,8 @@ class Trader:
             else:
                 order.limitPrice = round(float(self.pending_order["entry_price"]), 5)
             
-            # Set expiration timestamp (15 minutes from now)
-            current_timestamp = int(time.time() * 1000)  # Current time in milliseconds
-            expiration_timestamp = current_timestamp + (15 * 60 * 1000)  # Add 15 minutes
-            order.expirationTimestamp = expiration_timestamp
+            # No expiration - limit orders stay active until filled or manually cancelled
+            # order.expirationTimestamp = expiration_timestamp  # Removed expiration
             
             if(self.pending_order["decision"] == "BUY"):
                 order.tradeSide = ProtoOATradeSide.BUY
@@ -864,9 +865,9 @@ class Trader:
                 
     def onActivePositionReceived(self, response):
         parsed = Protobuf.extract(response)
-        positions = parsed.position  # List of active positions
-
-        # Store positions as list of dictionaries
+        
+        # Process active positions
+        positions = parsed.position if hasattr(parsed, 'position') else []
         self.active_positions = []
 
         for pos in positions:
@@ -880,6 +881,24 @@ class Trader:
                 "takeProfit": pos.takeProfit,
             })
 
+        # Process pending orders
+        orders = parsed.order if hasattr(parsed, 'order') else []
+        self.pending_orders = []
+
+        for order in orders:
+            self.pending_orders.append({
+                "orderId": order.orderId,
+                "symbolId": order.tradeData.symbolId,
+                "side": "BUY" if order.tradeData.tradeSide == 1 else "SELL",
+                "volume": order.tradeData.volume,
+                "orderType": order.orderType,
+                "limitPrice": getattr(order, 'limitPrice', None),
+                "stopPrice": getattr(order, 'stopPrice', None),
+                "expirationTimestamp": getattr(order, 'expirationTimestamp', None)
+            })
+
+        print(f"📊 Found {len(self.active_positions)} active positions and {len(self.pending_orders)} pending orders")
+        
         self.pairIndex = 0
         self.run_trading_cycle(self.pairs[self.pairIndex])
 
@@ -907,6 +926,15 @@ class Trader:
 
     def is_symbol_active(self, symbol_id):
         return any(pos["symbolId"] == symbol_id for pos in self.active_positions)
+    
+    def has_pending_order(self, symbol_id):
+        """Check if there's a pending limit order for the given symbol"""
+        return any(order["symbolId"] == symbol_id for order in self.pending_orders)
+    
+    def get_pending_order_details(self, symbol_id):
+        """Get details of pending orders for the given symbol"""
+        symbol_orders = [order for order in self.pending_orders if order["symbolId"] == symbol_id]
+        return symbol_orders
 
     def get_deals_from_current_week(self):
         """Get all deals from the current week before starting trendbar collection"""
@@ -1074,13 +1102,25 @@ class Trader:
             self.latest_data  = False
             self.trendbar = pd.DataFrame()
 
-            if(self.is_symbol_active(symbol_id)):
-                print(f"{pair_name} is currently Active!")
+            # Check for both active positions and pending orders
+            if self.is_symbol_active(symbol_id):
+                print(f"⚠️ {pair_name} is currently Active (has open position)!")
+                self.move_to_next_pair()
+            elif self.has_pending_order(symbol_id):
+                # Get details of pending orders for better logging
+                pending_details = self.get_pending_order_details(symbol_id)
+                for order in pending_details:
+                    order_type = order.get('orderType', 'Unknown')
+                    side = order.get('side', 'Unknown')
+                    volume = order.get('volume', 0) / 10000  # Convert to lots
+                    limit_price = order.get('limitPrice', 'N/A')
+                    print(f"⚠️ {pair_name} has pending {order_type} {side} order: {volume:.2f} lots @ {limit_price}")
+                logger.info(f"Skipping {pair_name} - has {len(pending_details)} pending order(s)")
                 self.move_to_next_pair()
             else:
                 self.current_pair = pair_name
             
-                # Directly request trendbars for decision-making (remove loss cooldown gating)
+                # Directly request trendbars for decision-making
                 self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
                 # #self.getActivePosition()
                 # #self.get_symbol_list()
