@@ -18,24 +18,23 @@ class GBPJPYSTRATEGY:
     def __init__(self, target_pair="GBP/JPY"):
         self.target_pair = target_pair
         
-        # --- 4H "BEAST TAMING" PARAMETERS ---
-        self.timeframe = "H4"
-        self.zone_lookback = 120         # 🔄 Reduced from 300 (H4 efficiency)
-        self.base_max_candles = 4        # 🔄 Reduced from 5 (H4 bases)
-        self.move_min_ratio = 1.5        # 🔄 Reduced from 2.0 (GBP/JPY moves are massive)
-        self.zone_width_max_pips = 150   # 🔄 Increased from 100 (wider H4 zones)
+        # --- OPTIMIZED STRATEGY PARAMETERS (From AutoTuner Results) ---
+        self.zone_lookback = 300         # How far back to look for zones (OPTIMIZED: was 200)
+        self.base_max_candles = 5        # Max number of candles in a "base" (OPTIMIZED: unchanged)
+        self.move_min_ratio = 2.0        # How strong the move out of the base must be (OPTIMIZED: unchanged)
+        self.zone_width_max_pips = 100   # Max width of a zone in pips - increased for JPY pairs
         self.pip_size = 0.01
         
-        # --- BEAST MODE 4H WICK FILTER ---
-        self.use_wick_filter = True  # Enable long wick filter
-        self.min_wick_percentage = 0.3   # 🔄 Reduced from 0.5 (GBP/JPY wicks are huge on H4)
+        # --- LONG WICK FILTER ---
+        self.use_wick_filter = True  # Enable long wick filter (50% of candle height)
+        self.min_wick_percentage = 0.5  # Minimum wick size as percentage of total candle height
         
-        # --- 4H BEAST CONTROL ---
-        self.rr_target = 3.5            # 🔄 Increased from 2.0 (ride the beast swings)
-        self.buffer_pct = 0.25          # 🔄 Increased from 0.15 (very conservative entries)
+        # --- NEW: TREND, ATR AND SESSION FILTERS ---
+        self.rr_target = 2.0
+        self.buffer_pct = 0.15
         self.atr_period = 14
-        self.atr_min_mult = 0.2         # 🔄 Reduced from 0.5 (H4 smaller relative SL)
-        self.atr_max_mult = 1.0         # 🔄 Reduced from 1.5 (tight beast control)
+        self.atr_min_mult = 0.5
+        self.atr_max_mult = 1.5
         self.use_session_filter = True
         self.session_hours_utc = set(range(7, 21))
         

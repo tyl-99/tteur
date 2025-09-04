@@ -18,25 +18,27 @@ class EURGBPSTRATEGY:
     def __init__(self, target_pair="EUR/GBP"):
         self.target_pair = target_pair
         
-        # --- OPTIMIZED STRATEGY PARAMETERS (From AutoTuner Results) ---
-        self.zone_lookback = 300         # How far back to look for zones (OPTIMIZED: was 200)
-        self.base_max_candles = 5        # Max number of candles in a "base" (OPTIMIZED: unchanged)
-        self.move_min_ratio = 2.0        # How strong the move out of the base must be (OPTIMIZED: unchanged)
-        self.zone_width_max_pips = 30    # Max width of a zone in pips to be considered valid (OPTIMIZED: was 20)
+        # --- 4H TIMEFRAME OPTIMIZED PARAMETERS ---
+        self.timeframe = "H4"
+        self.zone_lookback = 100         # 🔄 Reduced from 300 (fewer H4 candles needed)
+        self.base_max_candles = 3        # 🔄 Reduced from 5 (H4 bases are shorter)
+        self.move_min_ratio = 1.8        # 🔄 Reduced from 2.0 (H4 moves are larger)
+        self.zone_width_max_pips = 50    # 🔄 Increased from 30 (H4 zones can be wider)
         self.pip_size = 0.0001
         
-        # --- LONG WICK FILTER ---
-        self.use_wick_filter = True  # Enable long wick filter (50% of candle height)
-        self.min_wick_percentage = 0.5  # Minimum wick size as percentage of total candle height
+        # --- ENHANCED 4H WICK FILTER ---
+        self.use_wick_filter = True  # Enable long wick filter
+        self.min_wick_percentage = 0.4   # 🔄 Reduced from 0.5 (H4 wicks less critical)
         
-        # --- NEW: TREND, ATR AND SESSION FILTERS ---
-        self.rr_target = 2.0
-        self.buffer_pct = 0.15
+        # --- 4H SPECIFIC SETTINGS ---
+        self.rr_target = 2.5            # 🔄 Increased from 2.0 (higher targets on H4)
+        self.buffer_pct = 0.20          # 🔄 Increased from 0.15 (more conservative H4 entries)
         self.atr_period = 14
-        self.atr_min_mult = 0.5
-        self.atr_max_mult = 1.5
-        self.use_session_filter = True
-        self.session_hours_utc = set(range(7, 21))
+        self.atr_min_mult = 0.3         # 🔄 Reduced from 0.5 (H4 allows smaller SL)
+        self.atr_max_mult = 1.2         # 🔄 Reduced from 1.5 (H4 tighter control)
+        
+        # 🔄 DISABLE session filter for cross pair on H4
+        self.use_session_filter = False  # Cross pairs less session-dependent on H4
         
         # --- Internal State ---
         self.zones = [] # Stores {'type', 'price_high', 'price_low', 'created_at', 'is_fresh'}

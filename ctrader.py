@@ -42,6 +42,16 @@ forex_symbols = {
     "GBP/JPY": 7
 }
 
+# 🔄 DYNAMIC TIMEFRAME CONFIGURATION BY PAIR
+PAIR_TIMEFRAMES = {
+    "EUR/USD": "M30",  # Keep M30 - high frequency liquid pair
+    "GBP/USD": "H4",   # H4 - reduce GBP volatility noise  
+    "EUR/JPY": "M30",  # Keep M30 for now
+    "EUR/GBP": "H4",   # H4 - better for range-bound cross
+    "USD/JPY": "M30",  # Keep M30 for now
+    "GBP/JPY": "H4"    # H4 - tame "The Beast"
+}
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -170,12 +180,17 @@ class Trader:
         time.sleep(1)
         
         # Retry the trendbar request
-        self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+        self.sendTrendbarReq(weeks=6, symbolId=self.current_pair)
 
     def reset_api_retry_state(self):
         """Reset API retry tracking"""
         self.api_retry_count = 0
 
+    def get_pair_timeframe(self, pair_name):
+        """Get optimal timeframe for specific pair"""
+        timeframe = PAIR_TIMEFRAMES.get(pair_name, "M30")  # Default to M30
+        logger.info(f"📊 {pair_name} using {timeframe} timeframe")
+        return timeframe
 
     def connected(self, client):
         print("Connected to server.")
@@ -458,21 +473,37 @@ class Trader:
         self.current_position_id = None
         self.current_position_volume = None
 
-    def sendTrendbarReq(self, weeks, period, symbolId):
-        """Enhanced trendbar request with timeout and retry handling"""
-        self.trendbarReq = (weeks,period,symbolId)
+    def sendTrendbarReq(self, weeks, symbolId):
+        """Enhanced trendbar request with dynamic timeframe per pair"""
+        # 🔄 Get pair-specific timeframe dynamically
+        timeframe = self.get_pair_timeframe(symbolId)
+        
+        self.trendbarReq = (weeks, timeframe, symbolId)
         request = ProtoOAGetTrendbarsReq()
         request.ctidTraderAccountId = self.account_id
-        request.period = ProtoOATrendbarPeriod.Value(self.trendbarReq[1])
-        if(period != "M1"):
-            request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(weeks=int(self.trendbarReq[0]))).utctimetuple())) * 1000
+        request.period = ProtoOATrendbarPeriod.Value(timeframe)
+        
+        # 🔄 Adjust weeks based on timeframe for optimal data
+        if timeframe == "H4":
+            # H4 = 8x M30 candles in same time, so need more weeks for same analysis depth
+            adjusted_weeks = weeks * 2  # Double weeks for H4 to get enough data
+        elif timeframe == "H1":
+            # H1 = 2x M30 candles, so slightly more weeks  
+            adjusted_weeks = int(weeks * 1.5)
+        else:  # M30, M15, M5, etc.
+            adjusted_weeks = weeks
+            
+        if timeframe != "M1":
+            request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(weeks=int(adjusted_weeks))).utctimetuple())) * 1000
             request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
-        elif(period == "M1"):
+        elif timeframe == "M1":
             request.fromTimestamp = int(calendar.timegm((datetime.datetime.utcnow() - datetime.timedelta(minutes=40)).utctimetuple())) * 1000
             request.toTimestamp = int(calendar.timegm(datetime.datetime.utcnow().utctimetuple())) * 1000
-        request.symbolId = int(forex_symbols.get(self.trendbarReq[2]))
+            
+        request.symbolId = int(forex_symbols.get(symbolId))
         self.trendbarReq = None
         
+        print(f"📊 Requesting {timeframe} data for {symbolId} ({adjusted_weeks} weeks)")
         
         deferred = self.client.send(request, clientMsgId=None)
         # Add timeout handling
@@ -965,7 +996,7 @@ class Trader:
         except Exception as e:
             logger.error(f"Error creating deal request: {str(e)}")
             # Continue with trendbar collection even if deal request fails
-            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+            self.sendTrendbarReq(weeks=6, symbolId=self.current_pair)
 
     def onDealsReceived(self, response):
         """Handle the response from ProtoOADealListRes"""
@@ -1025,12 +1056,12 @@ class Trader:
             print(f"\n🚀 Starting trendbar data collection for {self.current_pair}...")
             
             # Continue with trendbar collection
-            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+            self.sendTrendbarReq(weeks=6, symbolId=self.current_pair)
             
         except Exception as e:
             logger.error(f"Error processing deals response: {str(e)}")
             # Continue with trendbar collection even if deal processing fails
-            self.sendTrendbarReq(weeks=6, period="M30", symbolId=self.current_pair)
+            self.sendTrendbarReq(weeks=6, symbolId=self.current_pair)
 
     def check_recent_loss_trade(self, pair_name):
         """Check if there's a loss trade in the last 12 hours for the given pair"""
@@ -1121,7 +1152,7 @@ class Trader:
                 self.current_pair = pair_name
             
                 # Directly request trendbars for decision-making
-                self.sendTrendbarReq(weeks=6, period="M30", symbolId=pair_name)
+                self.sendTrendbarReq(weeks=6, symbolId=pair_name)
                 # #self.getActivePosition()
                 # #self.get_symbol_list()
 

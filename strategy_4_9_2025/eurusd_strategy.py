@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List
 
-class GBPJPYSTRATEGY:
+class EURUSDSTRATEGY:
     """
-    A Supply and Demand strategy for GBP/JPY aiming for a high R:R.
+    A Supply and Demand strategy for EUR/USD aiming for a high R:R.
 
     Logic:
     1. Identifies Supply and Demand zones based on strong price moves away from a consolidated base.
@@ -15,28 +15,29 @@ class GBPJPYSTRATEGY:
     4. Enforces a strict 1:3 Risk-to-Reward ratio.
     """
 
-    def __init__(self, target_pair="GBP/JPY"):
+    def __init__(self, target_pair="EUR/USD"):
         self.target_pair = target_pair
         
-        # --- 4H "BEAST TAMING" PARAMETERS ---
-        self.timeframe = "H4"
-        self.zone_lookback = 120         # 🔄 Reduced from 300 (H4 efficiency)
-        self.base_max_candles = 4        # 🔄 Reduced from 5 (H4 bases)
-        self.move_min_ratio = 1.5        # 🔄 Reduced from 2.0 (GBP/JPY moves are massive)
-        self.zone_width_max_pips = 150   # 🔄 Increased from 100 (wider H4 zones)
-        self.pip_size = 0.01
+        # --- OPTIMIZED STRATEGY PARAMETERS (From AutoTuner Results) ---
+        # Best Result: 54.95% Win Rate, 111 trades, $6,847 PnL
+        self.zone_lookback = 300         # How far back to look for zones (OPTIMIZED: was 200)
+        self.base_max_candles = 5        # Max number of candles in a "base" (OPTIMIZED: unchanged)
+        self.move_min_ratio = 2.0        # How strong the move out of the base must be (OPTIMIZED: unchanged)
+        self.zone_width_max_pips = 30    # Max width of a zone in pips to be considered valid (OPTIMIZED: was 20)
+        self.pip_size = 0.0001
         
-        # --- BEAST MODE 4H WICK FILTER ---
-        self.use_wick_filter = True  # Enable long wick filter
-        self.min_wick_percentage = 0.3   # 🔄 Reduced from 0.5 (GBP/JPY wicks are huge on H4)
+        # --- LONG WICK FILTER ---
+        self.use_wick_filter = True  # Enable long wick filter (50% of candle height)
+        self.min_wick_percentage = 0.5  # Minimum wick size as percentage of total candle height
         
-        # --- 4H BEAST CONTROL ---
-        self.rr_target = 3.5            # 🔄 Increased from 2.0 (ride the beast swings)
-        self.buffer_pct = 0.25          # 🔄 Increased from 0.15 (very conservative entries)
+        # --- NEW: TREND, ATR AND SESSION FILTERS ---
+        self.rr_target = 2.0  # Default RR target (can scale to 2.5 if clean)
+        self.buffer_pct = 0.15  # Entry buffer as fraction of zone width
         self.atr_period = 14
-        self.atr_min_mult = 0.2         # 🔄 Reduced from 0.5 (H4 smaller relative SL)
-        self.atr_max_mult = 1.0         # 🔄 Reduced from 1.5 (tight beast control)
+        self.atr_min_mult = 0.5  # SL distance >= 0.5 * ATR
+        self.atr_max_mult = 1.5  # SL distance <= 1.5 * ATR
         self.use_session_filter = True
+        # London/NY core hours in UTC (approx): 7..20
         self.session_hours_utc = set(range(7, 21))
         
         # --- Internal State ---
@@ -112,6 +113,7 @@ class GBPJPYSTRATEGY:
         return series.ewm(span=period, adjust=False).mean()
 
     def _compute_h4_trend(self, df: pd.DataFrame) -> str:
+        """Return 'up', 'down', or 'unknown' based on H4 EMA200 (fallback to M30 EMA200)."""
         try:
             ts = pd.to_datetime(df['timestamp'], errors='coerce') if 'timestamp' in df.columns else None
             if ts is not None and ts.notna().all():
@@ -119,6 +121,7 @@ class GBPJPYSTRATEGY:
                 tmp['timestamp'] = ts
                 tmp = tmp.sort_values('timestamp')
                 tmp = tmp.set_index('timestamp')
+                # Resample to 4H candles using last close
                 h4_close = tmp['close'].resample('4H').last().dropna()
                 if len(h4_close) >= 210:
                     ema200 = self._ema(h4_close, 200)
@@ -128,6 +131,7 @@ class GBPJPYSTRATEGY:
                         return 'up'
                     elif last_close < last_ema:
                         return 'down'
+            # Fallback to M30 EMA200 on close
             if len(df) >= 210:
                 ema200_m30 = self._ema(df['close'], 200)
                 last_close = float(df['close'].iloc[-1])
@@ -147,7 +151,7 @@ class GBPJPYSTRATEGY:
             ts = df['timestamp'].iloc[-1]
             dt = pd.to_datetime(ts, errors='coerce')
             if pd.isna(dt):
-                return True
+                return True  # if unknown, don't block
             return dt.hour in self.session_hours_utc
         except Exception:
             return True
@@ -342,6 +346,7 @@ class GBPJPYSTRATEGY:
         current_price = df['close'].iloc[-1]
         trend = self._compute_h4_trend(df)
 
+        # Precompute ATR and ATR bounds in pips
         atr_value = self._compute_atr(df.iloc[-max(self.atr_period*3, 100):].copy(), self.atr_period)
         atr_pips = (atr_value / self.pip_size) if atr_value else None
 
@@ -352,18 +357,23 @@ class GBPJPYSTRATEGY:
             in_supply_zone = zone['type'] == 'supply' and zone['price_low'] <= current_price <= zone['price_high']
             in_demand_zone = zone['type'] == 'demand' and zone['price_low'] <= current_price <= zone['price_high']
 
+            # Trend alignment
             if zone['type'] == 'demand' and trend == 'down':
                 continue
             if zone['type'] == 'supply' and trend == 'up':
                 continue
 
+            # Wick confirmation
             if zone['type'] == 'demand':
                 if not self._check_wick_filter(df, "BUY"):
                     continue
+                # Entry at zone edge + buffer
                 zone_width = zone['price_high'] - zone['price_low']
                 entry_price = zone['price_low'] + zone_width * self.buffer_pct
                 sl = zone['price_low'] - (2 * self.pip_size)
                 risk_pips = (entry_price - sl) / self.pip_size
+                
+                # ATR bounds
                 if atr_pips is not None:
                     if risk_pips < self.atr_min_mult * atr_pips or risk_pips > self.atr_max_mult * atr_pips:
                         continue
