@@ -44,11 +44,11 @@ forex_symbols = {
 
 # 🔄 DYNAMIC TIMEFRAME CONFIGURATION BY PAIR
 PAIR_TIMEFRAMES = {
-    "EUR/USD": "M30",  # Keep M30 - high frequency liquid pair
+    "EUR/USD": "H4",   # H4 - longer-term trend analysis
     "GBP/USD": "H4",   # H4 - reduce GBP volatility noise  
-    "EUR/JPY": "M30",  # Keep M30 for now
+    "EUR/JPY": "H4",   # H4 - better swing trading
     "EUR/GBP": "H4",   # H4 - better for range-bound cross
-    "USD/JPY": "M30",  # Keep M30 for now
+    "USD/JPY": "H4",   # H4 - trend following optimization
     "GBP/JPY": "H4"    # H4 - tame "The Beast"
 }
 
@@ -276,13 +276,14 @@ class Trader:
             order.volume = int(self.pending_order["volume"])*100
 
             # Change to LIMIT order instead of MARKET
-            order.orderType = ProtoOAOrderType.LIMIT
+            order.orderType = ProtoOAOrderType.MARKET
             
-            # Set the exact entry price as limit price
-            if 'JPY' in self.current_pair:
-                order.limitPrice = round(float(self.pending_order["entry_price"]), 3)
-            else:
-                order.limitPrice = round(float(self.pending_order["entry_price"]), 5)
+            # For market orders, limitPrice is not set. Entry price will be the actual market price.
+            # We still set stop loss and take profit directly.
+            # if 'JPY' in self.current_pair:
+            #     order.limitPrice = round(float(self.pending_order["entry_price"]), 3)
+            # else:
+            #     order.limitPrice = round(float(self.pending_order["entry_price"]), 5)
             
             # No expiration - limit orders stay active until filled or manually cancelled
             # order.expirationTimestamp = expiration_timestamp  # Removed expiration

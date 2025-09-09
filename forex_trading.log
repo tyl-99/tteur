@@ -1,3 +1,39 @@
 2025-09-02 14:37:17,245 - __main__ - INFO - Processing EUR/USD
 2025-09-02 14:39:14,805 - __main__ - INFO - Skipping EUR/USD - has 1 pending order(s)
 2025-09-02 14:39:16,821 - __main__ - INFO - Processing GBP/USD
+2025-09-09 09:05:01,044 - __main__ - INFO - Processing EUR/USD
+2025-09-09 09:05:01,051 - __main__ - INFO - 📊 EUR/USD using H4 timeframe
+2025-09-09 09:05:02,114 - __main__ - INFO - 
+=== Strategy Decision for EUR/USD ===
+2025-09-09 09:05:02,114 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:02,114 - __main__ - INFO - No trade signal for EUR/USD: No valid signal generated
+2025-09-09 09:05:04,127 - __main__ - INFO - Processing GBP/USD
+2025-09-09 09:05:04,129 - __main__ - INFO - 📊 GBP/USD using H4 timeframe
+2025-09-09 09:05:05,042 - __main__ - INFO - 
+=== Strategy Decision for GBP/USD ===
+2025-09-09 09:05:05,044 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:05,044 - __main__ - INFO - No trade signal for GBP/USD: No EMA crossover signal
+2025-09-09 09:05:07,050 - __main__ - INFO - Processing USD/JPY
+2025-09-09 09:05:07,054 - __main__ - INFO - 📊 USD/JPY using H4 timeframe
+2025-09-09 09:05:08,095 - __main__ - INFO - 
+=== Strategy Decision for USD/JPY ===
+2025-09-09 09:05:08,095 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:08,096 - __main__ - INFO - No trade signal for USD/JPY: No breakout signal within range
+2025-09-09 09:05:10,111 - __main__ - INFO - Processing EUR/JPY
+2025-09-09 09:05:10,117 - __main__ - INFO - 📊 EUR/JPY using H4 timeframe
+2025-09-09 09:05:11,214 - __main__ - INFO - 
+=== Strategy Decision for EUR/JPY ===
+2025-09-09 09:05:11,214 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:11,215 - __main__ - INFO - No trade signal for EUR/JPY: No breakout signal within range
+2025-09-09 09:05:13,217 - __main__ - INFO - Processing EUR/GBP
+2025-09-09 09:05:13,218 - __main__ - INFO - 📊 EUR/GBP using H4 timeframe
+2025-09-09 09:05:14,064 - __main__ - INFO - 
+=== Strategy Decision for EUR/GBP ===
+2025-09-09 09:05:14,064 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:14,064 - __main__ - INFO - No trade signal for EUR/GBP: No valid SMA crossover signal
+2025-09-09 09:05:16,064 - __main__ - INFO - Processing GBP/JPY
+2025-09-09 09:05:16,065 - __main__ - INFO - 📊 GBP/JPY using H4 timeframe
+2025-09-09 09:05:17,117 - __main__ - INFO - 
+=== Strategy Decision for GBP/JPY ===
+2025-09-09 09:05:17,118 - __main__ - INFO - Decision: NO TRADE
+2025-09-09 09:05:17,118 - __main__ - INFO - No trade signal for GBP/JPY: No breakout signal within range
