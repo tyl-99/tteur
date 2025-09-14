@@ -9,7 +9,6 @@ import os
 
 # Ensure the news directory is importable for Gemini post-processing
 # sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'news'))
-# from news.gemini_processor import analyze_news_batch_with_gemini
 
 # Load environment variables
 # load_dotenv()
