@@ -583,7 +583,9 @@ class EURUSDSTRATEGY:
         if not structure_break:
             return {"decision": "NO TRADE", "reason": "No valid market structure break found"}
 
-        zone = structure_break['zone']
+        zone = structure_break.get('zone')
+        if zone is None:
+            return {"decision": "NO TRADE", "reason": "No valid zone found in structure break"}
 
         # 2) Zone freshness
         if not self._is_zone_fresh(zone, current_data):
@@ -622,6 +624,11 @@ class EURUSDSTRATEGY:
 
         # 7) Finalize SL/TP using 1:3 R:R (with SL bounded)
         entry_price = current_price
+        
+        # Ensure zone values are not None before calculation
+        if zone.get('low') is None or zone.get('high') is None:
+            return {"decision": "NO TRADE", "reason": "Invalid zone for SL/TP calculation"}
+
         if trade_direction == "BUY":
             stop_loss_candidate = zone['low'] - (self.sl_buffer_pips * self.pip_size)
             min_sl_price = entry_price - (self.sl_max_pips * self.pip_size)
