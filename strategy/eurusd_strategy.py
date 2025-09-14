@@ -4,15 +4,15 @@ from typing import Dict, Any, Optional, List
 import datetime
 import sys
 import os
-import requests
-from dotenv import load_dotenv
+# import requests
+# from dotenv import load_dotenv
 
 # Ensure the news directory is importable for Gemini post-processing
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'news'))
-from news.gemini_processor import analyze_news_batch_with_gemini
+# sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'news'))
+# from news.gemini_processor import analyze_news_batch_with_gemini
 
 # Load environment variables
-load_dotenv()
+# load_dotenv()
 
 
 class EURUSDSTRATEGY:
@@ -92,7 +92,7 @@ class EURUSDSTRATEGY:
                  session_hours_utc: Optional[List[str]] = ("07:00-11:00", "13:30-16:00"),
                  enable_session_hours_filter: bool = True,     # ON by default for EUR/USD quality
                  enable_zone_freshness_check: bool = True,     # ON by default boosts win rate
-                 enable_news_sentiment_filter: bool = False,   # OFF by default for speed
+                 # enable_news_sentiment_filter: bool = False,   # OFF by default for speed
                  enable_volatility_filter: bool = False,       # optional; OFF by default
                  atr_period: int = 14,
                  min_atr_pips: float = 3.0,                    # if vol filter on, avoid dead markets
@@ -150,7 +150,7 @@ class EURUSDSTRATEGY:
         self.session_hours_utc = list(session_hours_utc) if session_hours_utc else ["07:00-11:00", "13:30-16:00"]
         self.enable_session_hours_filter = enable_session_hours_filter
         self.enable_zone_freshness_check = enable_zone_freshness_check
-        self.enable_news_sentiment_filter = enable_news_sentiment_filter
+        # self.enable_news_sentiment_filter = enable_news_sentiment_filter
         self.enable_volatility_filter = enable_volatility_filter
         self.atr_period = atr_period
         self.min_atr_pips = min_atr_pips
@@ -549,46 +549,6 @@ class EURUSDSTRATEGY:
 
         return False
 
-    def _get_news_sentiment(self, current_datetime: datetime.datetime) -> str:
-        """
-        Fetch recent EUR-USD news and summarize with Gemini sentiment ('Bullish'/'Bearish'/'Neutral').
-        Safe defaults to 'Neutral' on any failure.
-        """
-        try:
-            api_token = os.getenv("FOREXNEWS_API_TOKEN")
-            base_url = "https://forexnewsapi.com/api/v1"
-
-            params = {
-                "currencypair": "EUR-USD",
-                "items": 20,
-                "page": 1,
-                "date": "today",
-                "token": api_token
-            }
-
-            response = requests.get(base_url, params=params, timeout=10)
-            if response.status_code == 200:
-                news_data = response.json()
-                if news_data and "data" in news_data and len(news_data["data"]) > 0:
-                    news_articles = []
-                    for article in news_data["data"]:
-                        news_articles.append({
-                            'title': article.get('title', ''),
-                            'text': article.get('text', ''),
-                            'date': article.get('date', '')
-                        })
-                    gemini_result = analyze_news_batch_with_gemini(news_articles) or {}
-                    sentiment = str(gemini_result.get('sentiment', 'Neutral'))
-                    if 'Bullish' in sentiment:
-                        return 'Bullish'
-                    if 'Bearish' in sentiment:
-                        return 'Bearish'
-                    return 'Neutral'
-            return 'Neutral'
-        except Exception as e:
-            print(f"Error getting news sentiment: {e}")
-            return 'Neutral'
-
     # =========================
     # Main Signal Logic
     # =========================
@@ -650,16 +610,16 @@ class EURUSDSTRATEGY:
             return {"decision": "NO TRADE", "reason": f"No {trade_direction.lower()} confirmation signal"}
 
         # 6) Optional news sentiment alignment
-        news_sentiment = "N/A (Filter Disabled)"
-        if self.enable_news_sentiment_filter:
-            news_sentiment = self._get_news_sentiment(current_datetime)
-            print(f"📰 News Sentiment: {news_sentiment}")
-            if trade_direction == "BUY" and news_sentiment == "Bearish":
-                print("❌ BUY filtered out by bearish news sentiment")
-                return {"decision": "NO TRADE", "reason": "Buy filtered out by bearish news"}
-            if trade_direction == "SELL" and news_sentiment == "Bullish":
-                print("❌ SELL filtered out by bullish news sentiment")
-                return {"decision": "NO TRADE", "reason": "Sell filtered out by bullish news"}
+        # news_sentiment = "N/A (Filter Disabled)"
+        # if self.enable_news_sentiment_filter:
+        #     news_sentiment = self._get_news_sentiment(current_datetime)
+        #     print(f"📰 News Sentiment: {news_sentiment}")
+        #     if trade_direction == "BUY" and news_sentiment == "Bearish":
+        #         print("❌ BUY filtered out by bearish news sentiment")
+        #         return {"decision": "NO TRADE", "reason": "Buy filtered out by bearish news"}
+        #     if trade_direction == "SELL" and news_sentiment == "Bullish":
+        #         print("❌ SELL filtered out by bullish news sentiment")
+        #         return {"decision": "NO TRADE", "reason": "Sell filtered out by bullish news"}
 
         # 7) Finalize SL/TP using 1:3 R:R (with SL bounded)
         entry_price = current_price
@@ -691,7 +651,7 @@ class EURUSDSTRATEGY:
             "reason": (
                 f"{'Bullish' if trade_direction=='BUY' else 'Bearish'} structure break retest at "
                 f"{'demand' if trade_direction=='BUY' else 'supply'} zone within Fib {int(self.fib_level_lower_bound*100)}–{int(self.fib_level_upper_bound*100)} band; "
-                f"confirmation present; News: {news_sentiment}"
+                f"confirmation present"
             ),
             "meta": {
                 "zone_high": zone['high'],
@@ -703,6 +663,6 @@ class EURUSDSTRATEGY:
                 "creation_price": structure_break['creation_price'],
                 "max_bars_in_trade": self.max_bars_in_trade,
                 "risk_per_trade": self.risk_per_trade,
-                "news_sentiment": news_sentiment
+                # "news_sentiment": news_sentiment # Removed as news filter is disabled
             }
         }

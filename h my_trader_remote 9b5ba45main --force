@@ -1,0 +1,82 @@
+de10281 - tyl020131, 7 minutes ago : Add 20 autotuner combinations with 1:3 RR and update strategy param passing.
+9b5ba45 - tyl99, 5 days ago : Delete backtest directory
+274d727 - tyl99, 5 days ago : Delete backtest_logs directory
+d0634ef - tyl99, 5 days ago : Latest Stategy
+e938121 - tyl020131, 5 days ago : Latest Strategy
+8e5ce1f - tyl020131, 5 days ago : Latest Strategy
+1c8ea3e - tyl020131, 10 days ago : Latest Strategy
+fb3a387 - tyl020131, 12 days ago : Latest Strategy
+df20795 - tyl020131, 13 days ago : Latest Strategy
+2f28ab8 - tyl020131, 3 weeks ago : Latest Strategy
+b10f7ac - tyl020131, 3 weeks ago : Latest Strategy
+5c59db2 - tyl020131, 6 weeks ago : LatestStrategy
+02a0310 - tyl020131, 7 weeks ago : Latest Strategy
+40b4e34 - tyl020131, 8 weeks ago : notification
+c811bd0 - tyl020131, 9 weeks ago : Latest Strategy
+0b248f9 - tyl020131, 9 weeks ago : Latest Strategy
+2a14c80 - tyl020131, 10 weeks ago : Latest Strategy
+4c9bf8e - tyl020131, 10 weeks ago : Latest Strategy
+6c70d15 - tyl020131, 10 weeks ago : Latest Strategy
+01e885b - tyl020131, 10 weeks ago : Latest Strategy
+76c0e1f - tyl020131, 10 weeks ago : Latest Strategy
+9673c5e - tyl020131, 2 months ago : Latest Strategy
+644a225 - tyl020131, 2 months ago : Latest Strategy
+c363bdf - tyl020131, 2 months ago : Latest Strategy
+3ba6a29 - tyl020131, 3 months ago : Volume Strategy
+4cbcd92 - tyl020131, 3 months ago : Volume Strategy
+e0e4247 - tyl020131, 3 months ago : Volume Strategy
+bedf282 - tyl020131, 3 months ago : Volume Strategy
+0333560 - tyl020131, 3 months ago : Volume Strategy
+273f12e - tyl020131, 3 months ago : Volume Strategy
+440e889 - tyl020131, 3 months ago : Firebase Integration
+3385267 - tyl020131, 3 months ago : Firebase Integration
+2cc71b2 - tyl020131, 3 months ago : Firebase Integration
+f59e415 - tyl020131, 3 months ago : FIrebase Integration
+7daf24f - tyl020131, 3 months ago : Firebase Integration
+e0d04f3 - tyl020131, 3 months ago : Latest Strategy
+d746094 - tyl020131, 3 months ago : Latest Strategy
+6ed761d - tyl020131, 3 months ago : Latest Strategy
+1f7c8a4 - tyl020131, 3 months ago : Latest Strategy
+2eba1e7 - tyl020131, 3 months ago : Latest Strategy
+2a46e29 - tyl020131, 3 months ago : Latest Strategy
+cfdb04b - tyl020131, 3 months ago : Latest Strategy
+8b0b341 - tyl020131, 3 months ago : Latest Strategy
+9d03e6c - tyl020131, 3 months ago : Latest Strategy
+5624776 - tyl020131, 3 months ago : Latest Strategy
+ed96671 - tyl020131, 3 months ago :  Latest Strategy
+dbb99e5 - tyl020131, 3 months ago : Latest Strategy 20250624
+fce45a3 - tyl020131, 3 months ago : Latest Strategy
+ce9af74 - tyl99, 3 months ago : Delete results directory
+5b39bbe - tyl99, 3 months ago : Delete data directory
+cc07d7d - tyl99, 3 months ago : Delete core directory
+daa82b5 - tyl99, 3 months ago : Delete backtest_data directory
+70bd194 - tyl99, 3 months ago : Delete backtest directory
+1a8ffe8 - tyl99, 3 months ago : Delete tuning directory
+54abf86 - tyl99, 3 months ago : Delete web directory
+9b5c0c5 - tyl020131, 3 months ago : Latest Strategy
+4c53328 - tyl020131, 3 months ago : Latest Strategy
+4ef2117 - tyl020131, 3 months ago : new strategy
+d5c4d6b - tyl020131, 3 months ago : New Strategy
+deb5189 - tyl020131, 3 months ago :  New Strategy
+0ebce69 - tyl020131, 3 months ago : Update Strategy Printing
+e183199 - tyl020131, 3 months ago : Update Strategy
+86ec7ab - tyl020131, 3 months ago : Add Latest Data
+d9e3e08 - tyl020131, 3 months ago : Add 5 Min Timer
+a24777e - tyl020131, 3 months ago : Change to Gemini
+ce70e90 - tyl020131, 3 months ago : Latest Strategy
+fd17624 - tyl020131, 3 months ago : Update Strategy
+d83ab1d - tyl020131, 3 months ago : Latest Strategy
+d2a5842 - tyl020131, 4 months ago : Latest Strategy
+05f56cd - tyl020131, 4 months ago : Update Strategy
+e38f461 - tyl020131, 4 months ago : Chnage Acess Token
+0bd89bc - tyl020131, 4 months ago : New Strategy
+9f35717 - tyl020131, 4 months ago : Add Round off 2 Decimal Place
+9cc2b39 - tyl020131, 4 months ago : Update Requirements.txt
+f76f2b4 - tyl99, 4 months ago : Delete claudeAPIKey.txt
+db38dc1 - tyl020131, 4 months ago : Environment Commit
+a7b39f3 - tyl020131, 4 months ago : Merge branch 'main' of https://github.com/tyl-99/my-trader
+1c29193 - tyl020131, 4 months ago : Specify Python version
+5fd1e9f - tyl99, 4 months ago : Update requirements.txt
+d6d76c4 - tyl99, 4 months ago : Update requirements.txt
+dacb784 - tyl020131, 4 months ago : Initial commit with script and requirements
+f935ae5 - tyl020131, 4 months ago : Initial Commit
