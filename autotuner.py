@@ -451,4 +451,4 @@ if __name__ == "__main__":
     start_date_str = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
     
     autotuner = Autotuner(target_pair="EUR/USD")
-    # autotuner.run_tuning() # Commented out to prevent accidental runs 
+    autotuner.run_tuning() # Commented out to prevent accidental runs 
