@@ -4,14 +4,14 @@ from typing import Dict, Any, Optional, List
 import datetime
 import sys
 import os
-# import requests
-# from dotenv import load_dotenv
+import requests
+from dotenv import load_dotenv
 
 # Ensure the news directory is importable for Gemini post-processing
 # sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'news'))
 
 # Load environment variables
-# load_dotenv()
+load_dotenv()
 
 
 class EURUSDSTRATEGY:
@@ -91,7 +91,7 @@ class EURUSDSTRATEGY:
                  session_hours_utc: Optional[List[str]] = ("07:00-11:00", "13:30-16:00"),
                  enable_session_hours_filter: bool = True,     # ON by default for EUR/USD quality
                  enable_zone_freshness_check: bool = True,     # ON by default boosts win rate
-                 # enable_news_sentiment_filter: bool = False,   # OFF by default for speed
+                 enable_news_sentiment_filter: bool = False,   # OFF by default for speed
                  enable_volatility_filter: bool = False,       # optional; OFF by default
                  atr_period: int = 14,
                  min_atr_pips: float = 3.0,                    # if vol filter on, avoid dead markets
@@ -149,7 +149,7 @@ class EURUSDSTRATEGY:
         self.session_hours_utc = list(session_hours_utc) if session_hours_utc else ["07:00-11:00", "13:30-16:00"]
         self.enable_session_hours_filter = enable_session_hours_filter
         self.enable_zone_freshness_check = enable_zone_freshness_check
-        # self.enable_news_sentiment_filter = enable_news_sentiment_filter
+        self.enable_news_sentiment_filter = enable_news_sentiment_filter
         self.enable_volatility_filter = enable_volatility_filter
         self.atr_period = atr_period
         self.min_atr_pips = min_atr_pips
@@ -209,6 +209,39 @@ class EURUSDSTRATEGY:
         if pd.isna(atr):
             return None
         return float(atr / self.pip_size)
+
+    def _get_news_sentiment(self, current_datetime: datetime.datetime) -> str:
+        """Lightweight news sentiment stub. Returns 'Neutral' if API unavailable.
+        If FOREXNEWS_API_TOKEN is set, attempts a basic fetch from forexnewsapi.com and
+        derives a naive sentiment; otherwise defaults to 'Neutral'."""
+        try:
+            token = os.getenv("FOREXNEWS_API_TOKEN")
+            if not token:
+                return "Neutral"
+
+            params = {
+                "currencypair": "EUR-USD",
+                "items": 10,
+                "date": "today",
+                "token": token,
+            }
+            resp = requests.get("https://forexnewsapi.com/api/v1", params=params, timeout=5)
+            if resp.status_code != 200:
+                return "Neutral"
+            data = resp.json()
+            titles = [it.get("title", "") for it in data.get("data", [])]
+            text = " ".join(titles).lower()
+            bull_kw = ["euro rises", "usd weak", "risk-on", "bullish", "hawkish ecb"]
+            bear_kw = ["euro falls", "usd strong", "risk-off", "bearish", "dovish ecb"]
+            bull_hits = sum(1 for k in bull_kw if k in text)
+            bear_hits = sum(1 for k in bear_kw if k in text)
+            if bull_hits > bear_hits:
+                return "Bullish"
+            if bear_hits > bull_hits:
+                return "Bearish"
+            return "Neutral"
+        except Exception:
+            return "Neutral"
 
     def _calculate_fibonacci_levels(self, high_price: float, low_price: float, direction: str) -> Dict[str, float]:
         """Calculate Fib retracement levels for readability (not strictly required for the band test)."""
@@ -611,16 +644,16 @@ class EURUSDSTRATEGY:
             return {"decision": "NO TRADE", "reason": f"No {trade_direction.lower()} confirmation signal"}
 
         # 6) Optional news sentiment alignment
-        # news_sentiment = "N/A (Filter Disabled)"
-        # if self.enable_news_sentiment_filter:
-        #     news_sentiment = self._get_news_sentiment(current_datetime)
-        #     print(f"📰 News Sentiment: {news_sentiment}")
-        #     if trade_direction == "BUY" and news_sentiment == "Bearish":
-        #         print("❌ BUY filtered out by bearish news sentiment")
-        #         return {"decision": "NO TRADE", "reason": "Buy filtered out by bearish news"}
-        #     if trade_direction == "SELL" and news_sentiment == "Bullish":
-        #         print("❌ SELL filtered out by bullish news sentiment")
-        #         return {"decision": "NO TRADE", "reason": "Sell filtered out by bullish news"}
+        news_sentiment = "Neutral"
+        if self.enable_news_sentiment_filter:
+            news_sentiment = self._get_news_sentiment(current_datetime)
+            print(f"📰 News Sentiment: {news_sentiment}")
+            if trade_direction == "BUY" and news_sentiment == "Bearish":
+                print("❌ BUY filtered out by bearish news sentiment")
+                return {"decision": "NO TRADE", "reason": "Buy filtered out by bearish news"}
+            if trade_direction == "SELL" and news_sentiment == "Bullish":
+                print("❌ SELL filtered out by bullish news sentiment")
+                return {"decision": "NO TRADE", "reason": "Sell filtered out by bullish news"}
 
         # 7) Finalize SL/TP using 1:3 R:R (with SL bounded)
         entry_price = current_price
@@ -669,6 +702,6 @@ class EURUSDSTRATEGY:
                 "creation_price": structure_break['creation_price'],
                 "max_bars_in_trade": self.max_bars_in_trade,
                 "risk_per_trade": self.risk_per_trade,
-                # "news_sentiment": news_sentiment # Removed as news filter is disabled
+                "news_sentiment": news_sentiment
             }
         }
