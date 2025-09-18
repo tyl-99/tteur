@@ -62,12 +62,12 @@ forex_symbols = {
 
 # 🔄 DYNAMIC TIMEFRAME CONFIGURATION BY PAIR
 PAIR_TIMEFRAMES = {
-    "EUR/USD": "H4",   # H4 - longer-term trend analysis
-    "GBP/USD": "H4",   # H4 - reduce GBP volatility noise  
-    "EUR/JPY": "H4",   # H4 - better swing trading
-    "EUR/GBP": "H4",   # H4 - better for range-bound cross
-    "USD/JPY": "H4",   # H4 - trend following optimization
-    "GBP/JPY": "H4"    # H4 - tame "The Beast"
+    "EUR/USD": "M30",
+    "GBP/USD": "M30",
+    "EUR/JPY": "M30",
+    "EUR/GBP": "M30",
+    "USD/JPY": "M30",
+    "GBP/JPY": "M30"
 }
 
 logging.basicConfig(
