@@ -2,7 +2,8 @@ import datetime
 import pandas as pd
 
 class Trade:
-    def __init__(self, entry_time, pair, direction, entry_price, stop_loss, take_profit, volume, reason, risk_amount=None):
+    def __init__(self, entry_time, pair, direction, entry_price, stop_loss, take_profit, volume, reason, risk_amount=None, entry_volume=0.0):
+        print(f"DEBUG: Trade.__init__ received entry_volume: {entry_volume}")
         self.entry_time = entry_time
         self.pair = pair
         self.direction = direction
@@ -20,6 +21,9 @@ class Trade:
         self.is_closed = False
         self.risk_amount = risk_amount
         self.balance_after = 0.0 # Initialize to 0.0
+        self.sl_pips = 0.0 # New: Store Stop Loss in pips
+        self.tp_pips = 0.0 # New: Store Take Profit in pips
+        self.entry_volume = entry_volume # New: Store entry candle volume
     
     def calculate_pnl(self, exit_price):
         """Calculate P&L for this trade"""
@@ -56,4 +60,5 @@ class Trade:
     def __str__(self):
         return (f"Trade({self.direction} {self.pair}, PnL: ${self.usd_pnl:+.2f}, "
                 f"Entry: {self.entry_time.strftime('%Y-%m-%d %H:%M') if self.entry_time else 'N/A'}, "
-                f"Exit: {self.exit_time.strftime('%Y-%m-%d %H:%M') if self.exit_time else 'N/A'})")
+                f"Exit: {self.exit_time.strftime('%Y-%m-%d %H:%M') if self.exit_time else 'N/A'}, "
+                f"SL: {self.sl_pips:.1f} pips, TP: {self.tp_pips:.1f} pips, Entry Volume: {self.entry_volume:.0f}, Position Volume: {self.volume:.2f} lots)")

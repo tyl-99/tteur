@@ -24,13 +24,31 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 
-# Strategy imports
-from strategy.eurusd_strategy import EURUSDSTRATEGY
-from strategy.gbpusd_strategy import GBPUSDSTRATEGY
-from strategy.eurgbp_strategy import EURGBPSTRATEGY
-from strategy.usdjpy_strategy import USDJPYSTRATEGY
-from strategy.gbpjpy_strategy import GBPJPYSTRATEGY
-from strategy.eurjpy_strategy import EURJPYSTRATEGY
+# Strategy imports (optional, handle missing files gracefully)
+try:
+    from strategy.eurusd_strategy import EURUSDSTRATEGY
+except ImportError:
+    EURUSDSTRATEGY = None
+try:
+    from strategy.gbpusd_strategy import GBPUSDSTRATEGY
+except ImportError:
+    GBPUSDSTRATEGY = None
+try:
+    from strategy.eurgbp_strategy import EURGBPSTRATEGY
+except ImportError:
+    EURGBPSTRATEGY = None
+try:
+    from strategy.usdjpy_strategy import USDJPYSTRATEGY
+except ImportError:
+    USDJPYSTRATEGY = None
+try:
+    from strategy.gbpjpy_strategy import GBPJPYSTRATEGY
+except ImportError:
+    GBPJPYSTRATEGY = None
+try:
+    from strategy.eurjpy_strategy import EURJPYSTRATEGY
+except ImportError:
+    EURJPYSTRATEGY = None
 
 # Forex symbols mapping with IDs
 forex_symbols = {
@@ -138,15 +156,27 @@ class Trader:
         # Store closed deals list
         self.closed_deals_list = []
 
-        # Initialize strategy instances for each pair
-        self.strategies = {
-            "EUR/USD": EURUSDSTRATEGY(),
-            "GBP/USD": GBPUSDSTRATEGY(),
-            "EUR/GBP": EURGBPSTRATEGY(),
-            "USD/JPY": USDJPYSTRATEGY(),
-            "GBP/JPY": GBPJPYSTRATEGY(),
-            "EUR/JPY": EURJPYSTRATEGY()
-        }
+        # Initialize strategy instances for each available pair
+        self.strategies = {}
+        if EURUSDSTRATEGY:
+            self.strategies["EUR/USD"] = EURUSDSTRATEGY()
+        if GBPUSDSTRATEGY:
+            self.strategies["GBP/USD"] = GBPUSDSTRATEGY()
+        if EURGBPSTRATEGY:
+            self.strategies["EUR/GBP"] = EURGBPSTRATEGY()
+        if USDJPYSTRATEGY:
+            self.strategies["USD/JPY"] = USDJPYSTRATEGY()
+        if GBPJPYSTRATEGY:
+            self.strategies["GBP/JPY"] = GBPJPYSTRATEGY()
+        if EURJPYSTRATEGY:
+            self.strategies["EUR/JPY"] = EURJPYSTRATEGY()
+
+        # Filter configured pairs to only those with available strategies
+        available_pairs = set(self.strategies.keys())
+        self.pairs = [p for p in self.pairs if f"{p['from']}/{p['to']}" in available_pairs]
+        if not self.pairs:
+            logger.error("No available strategies for configured pairs. Exiting.")
+            return
 
         self.connect()
         

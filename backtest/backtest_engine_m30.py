@@ -48,7 +48,7 @@ class BacktestEngineM30:
         # Setup logging for trades and candle data
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.trade_log_detailed_file = f"backtest_logs/{self.target_pair.replace('/', '_')}_detailed_trades_{timestamp}.xlsx"
-        # # self.trade_log_file = f"backtest_logs/{self.target_pair.replace('/', '_')}_FULL_trades_{timestamp}.xlsx"
+        # # self.trade_log_file = f"backtest_logs/{self.target_pair.reZZplace('/', '_')}_FULL_trades_{timestamp}.xlsx"
         # self.trade_data_path = f"candle_data/{self.target_pair.replace('/', '_')}_candle_data_{timestamp}.pkl"
 
         # Ensure directories exist
@@ -308,6 +308,9 @@ class {class_name}Strategy:
                 'exit_price': trade.exit_price,
                 'stop_loss': trade.stop_loss,
                 'take_profit': trade.take_profit,
+                'sl_pips': trade.sl_pips,
+                'tp_pips': trade.tp_pips,
+                'entry_volume': trade.entry_volume, # New: Add entry candle volume
                 'exit_reason': trade.exit_reason,
                 'pips_gained': trade.pips_gained,
                 'duration_hours': trade.duration_hours,
@@ -465,6 +468,15 @@ class {class_name}Strategy:
                     df['candle_range'] = df['high'] - df['low']
                     logger.warning(f"⚠️ Added missing candle_range column")
                 
+                # --- DEBUGGING VOLUME --- #
+                print(f"DEBUG: DataFrame columns: {df.columns.tolist()}")
+                if 'volume' in df.columns:
+                    print(f"DEBUG: First 5 volume values: {df['volume'].head().tolist()}")
+                    print(f"DEBUG: Volume column dtype: {df['volume'].dtype}")
+                else:
+                    print("DEBUG: 'volume' column NOT found in DataFrame after loading.")
+                # --- END DEBUGGING VOLUME --- #
+
                 logger.info(f"✅ Loaded NATIVE {self.target_pair}: {len(df):,} {expected_timeframe} bars")
                 logger.info(f"📅 Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
                 logger.info(f"🎯 NATIVE TIMEFRAME: No aggregation needed - maximum broker accuracy!")
@@ -478,7 +490,7 @@ class {class_name}Strategy:
             logger.error(f"❌ Error loading {self.target_pair} data: {e}")
             return {}
     
-    def open_trade(self, signal, timestamp, pair, market_price, current_index, full_df):
+    def open_trade(self, signal, timestamp, pair, market_price, current_index, full_df, entry_candle_volume: float = 0.0):
         """Open a new trade with PROPER risk-based position sizing"""
         if signal.get("decision", "NO TRADE").upper() == "NO TRADE":
             return
@@ -515,9 +527,10 @@ class {class_name}Strategy:
         trade = Trade(
             timestamp, pair, signal["decision"].upper(), actual_entry,
             signal["stop_loss"], signal["take_profit"], 
-            calculated_volume,  # USE CALCULATED VOLUME!
+            calculated_volume, # Use calculated volume for position size
             signal.get("reason", "Strategy signal"),
-            risk_amount=risk_per_trade  # Store risk amount for PnL calculation
+            risk_amount=risk_per_trade,  # Store risk amount for PnL calculation
+            entry_volume=entry_candle_volume # New: Pass entry candle volume
         )
         
         # Store entry index for candle data collection
@@ -606,8 +619,12 @@ class {class_name}Strategy:
         
         if trade.direction == "BUY":
             pips_gained = (exit_price - trade.entry_price) / pip_size
+            trade.sl_pips = abs(trade.entry_price - trade.stop_loss) / pip_size
+            trade.tp_pips = abs(trade.take_profit - trade.entry_price) / pip_size
         else:  # SELL
             pips_gained = (trade.entry_price - exit_price) / pip_size
+            trade.sl_pips = abs(trade.entry_price - trade.stop_loss) / pip_size
+            trade.tp_pips = abs(trade.entry_price - trade.take_profit) / pip_size
         
         # Calculate PnL based on fixed risk
         sl_distance_pips = abs(trade.entry_price - trade.stop_loss) / pip_size
@@ -658,6 +675,7 @@ class {class_name}Strategy:
         # Log results
         logger.info(f"📊 CLOSED {trade.direction} {trade.pair}")
         logger.info(f"   Exit: {exit_reason} | Pips: {pips_gained:+.1f} | PnL: ${pnl:+.2f}")
+        logger.info(f"   SL Pips: {trade.sl_pips:.1f}, TP Pips: {trade.tp_pips:.1f}")
         logger.info(f"   Balance: ${self.current_balance:.2f}")
         
         return pnl
@@ -671,7 +689,7 @@ class {class_name}Strategy:
         - Clean strategy testing environment
         """
         logger.info(f"🚀 Starting PURE STRATEGY {self.target_pair} backtest...")
-        
+
         # 🎯 CHECK IF STRATEGY IS AVAILABLE
         if self.strategy is None:
             strategy_info = self.get_strategy_file_info()
@@ -724,6 +742,7 @@ class {class_name}Strategy:
             current_candle = pair_df.iloc[idx]
             timestamp = current_candle['timestamp']
             current_price = current_candle['close']
+            current_volume = current_candle.get('volume', 0.0) # Get volume, default to 0 if not present
 
             # Update strategy with new candle (for internal state management)
             # strategy.update_state(current_candle)
@@ -742,7 +761,7 @@ class {class_name}Strategy:
                     
                     if len(current_data) >= min_bars_for_strategy:
                         # 🎯 PURE STRATEGY EVALUATION
-                        signal = strategy.analyze_trade_signal(pair_df, idx, self.target_pair)
+                        signal = strategy.analyze_trade_signal(current_data, self.target_pair)
                         
                         if signal.get("decision", "NO TRADE").upper() != "NO TRADE":
                             # 🎯 IMMEDIATE EXECUTION: No delays or slippage for pure strategy testing
@@ -755,7 +774,7 @@ class {class_name}Strategy:
                                 # Use exact signal entry price for clean testing
                                 
                                 self.open_trade(signal, actual_timestamp, self.target_pair, 
-                                              actual_price, actual_exec_idx, pair_df)
+                                              actual_price, actual_exec_idx, pair_df, current_volume)
                                 
                                 # Log every trade for pure strategy evaluation
                                 if len(self.trades) % 10 == 1:  # Log every 10th trade
@@ -1118,36 +1137,40 @@ if __name__ == "__main__":
 
         # Parameters for Combination 3
         params = {
-            'lookback_period': 120,
-            'min_structure_move_pips': 6,
-            'fib_tolerance': 0.28,
-            'sl_buffer_pips': 5,
-            'rr_ratio': 3.0,
-            'min_zone_size_pips': 1,
-            'max_zone_size_pips': 25,
-            'min_confirmation_body_pct': 0.4,
-            'swing_point_lookback': 1,
-            'max_base_candles_in_zone': 1,
-            'use_max_base_candle_range_filter': True,
-            'enable_zone_freshness_check': False,
-            'profile': 'loose'
+            'zone_lookback': 350,
+            'base_max_candles': 4,
+            'move_min_ratio': 2.5,
+            'zone_width_max_pips': 25,
+            'risk_reward_ratio': 3.0, # Changed from 4.0 to 3.0 for 1:3 R:R
+            'sl_buffer_pips': 4.0,
+            'ema_periods': [20, 50, 200],
+            'rsi_period': 14,
+            'rsi_oversold': 30.0,
+            'rsi_overbought': 70.0,
+            'enable_volume_filter': False,
+            'min_volume_factor': 1.2,
+            'session_hours_utc': ("07:00-08:30", "10:30-11:00", "15:00-16:00"),
+            'enable_session_hours_filter': True,
+            'enable_news_sentiment_filter': False
         }
 
         strategy_instance = EURUSDSTRATEGY(
             target_pair="EUR/USD",
-            lookback_period=params['lookback_period'],
-            min_structure_move_pips=params['min_structure_move_pips'],
-            fib_tolerance=params['fib_tolerance'],
+            zone_lookback=params['zone_lookback'],
+            base_max_candles=params['base_max_candles'],
+            move_min_ratio=params['move_min_ratio'],
+            zone_width_max_pips=params['zone_width_max_pips'],
+            risk_reward_ratio=params['risk_reward_ratio'],
             sl_buffer_pips=params['sl_buffer_pips'],
-            rr_ratio=params['rr_ratio'],
-            min_zone_size_pips=params['min_zone_size_pips'],
-            max_zone_size_pips=params['max_zone_size_pips'],
-            min_confirmation_body_pct=params['min_confirmation_body_pct'],
-            swing_point_lookback=params['swing_point_lookback'],
-            max_base_candles_in_zone=params['max_base_candles_in_zone'],
-            use_max_base_candle_range_filter=params['use_max_base_candle_range_filter'],
-            enable_zone_freshness_check=params['enable_zone_freshness_check'],
-            profile=params['profile']
+            ema_periods=params['ema_periods'],
+            rsi_period=params['rsi_period'],
+            rsi_oversold=params['rsi_oversold'],
+            rsi_overbought=params['rsi_overbought'],
+            enable_volume_filter=params['enable_volume_filter'],
+            min_volume_factor=params['min_volume_factor'],
+            session_hours_utc=params['session_hours_utc'],
+            enable_session_hours_filter=params['enable_session_hours_filter'],
+            enable_news_sentiment_filter=params['enable_news_sentiment_filter']
         )
 
         engine = BacktestEngineM30(
