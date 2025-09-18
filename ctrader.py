@@ -787,7 +787,7 @@ class Trader:
         risk_pips = abs(entry_price - stop_loss) / pip_size
         
         # Target $50 risk per trade (as requested by user)
-        target_risk_usd = 50.0
+        target_risk_usd = 100.0
         
         # More accurate pip values for different pairs
         if 'JPY' in self.current_pair:
